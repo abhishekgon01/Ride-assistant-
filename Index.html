@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Ride Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1218;
+    --panel:#171D27;
+    --panel-2:#1D2531;
+    --line:#2A3444;
+    --text:#EDEFF3;
+    --text-dim:#8B96A5;
+    --amber:#F5A623;
+    --teal:#2DD4BF;
+    --coral:#FF5A5A;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .app{
+    width:100%;
+    max-width:480px;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    padding:20px 18px 28px;
+  }
+  .app-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding-bottom:16px;
+  }
+  .brand{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:17px;
+    font-weight:600;
+    letter-spacing:0.2px;
+  }
+  .status-dot{
+    width:9px; height:9px; border-radius:50%;
+    background:var(--text-dim);
+    box-shadow:0 0 0 3px rgba(139,150,165,0.15);
+    transition:background .3s, box-shadow .3s;
+  }
+  .status-dot.live{
+    background:var(--teal);
+    box-shadow:0 0 0 3px rgba(45,212,191,0.2);
+  }
+
+  .hero{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:22px 20px;
+    margin-bottom:12px;
+  }
+  .speed-block{display:flex; align-items:baseline; gap:8px;}
+  .speed-value{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:64px;
+    font-weight:700;
+    line-height:1;
+    color:var(--amber);
+    transition:color .25s;
+    font-variant-numeric:tabular-nums;
+  }
+  .speed-value.over{color:var(--coral);}
+  .speed-unit{font-size:14px; color:var(--text-dim);}
+
+  .compass-block{display:flex; flex-direction:column; align-items:center; gap:6px;}
+  .compass{
+    position:relative;
+    width:56px; height:56px;
+    border-radius:50%;
+    border:1.5px solid var(--line);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .compass-n{
+    position:absolute; top:4px;
+    font-size:9px; color:var(--text-dim); font-weight:600;
+  }
+  .compass-needle{
+    width:2px; height:20px;
+    background:var(--teal);
+    border-radius:2px;
+    transform-origin:bottom center;
+    position:relative;
+    bottom:-8px;
+    transition:transform .3s ease-out;
+  }
+  .compass-label{font-size:12px; color:var(--text-dim); font-variant-numeric:tabular-nums;}
+
+  .trip-strip{
+    display:flex;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:18px;
+    margin-bottom:12px;
+    overflow:hidden;
+  }
+  .trip-stat{
+    flex:1;
+    padding:14px 8px;
+    text-align:center;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+  .trip-stat:not(:last-child){border-right:1px solid var(--line);}
+  .trip-stat span{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:20px;
+    font-weight:600;
+    font-variant-numeric:tabular-nums;
+  }
+  .trip-stat small{font-size:11px; color:var(--text-dim);}
+
+  .alert-bar{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:12px 14px;
+    font-size:13.5px;
+    color:var(--text-dim);
+    line-height:1.4;
+    margin-bottom:16px;
+    min-height:20px;
+    transition:color .2s, border-color .2s;
+  }
+  .alert-bar.warn{color:var(--coral); border-color:rgba(255,90,90,0.4);}
+  .alert-bar.ok{color:var(--teal); border-color:rgba(45,212,191,0.35);}
+
+  .controls{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:16px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+  .btn-primary{
+    background:var(--amber);
+    color:#1A1300;
+    border:none;
+    border-radius:12px;
+    padding:14px;
+    font-size:15px;
+    font-weight:600;
+    font-family:'Space Grotesk',sans-serif;
+    cursor:pointer;
+  }
+  .btn-primary.stop{background:var(--coral); color:#2A0000;}
+
+  .control-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .control-row label{font-size:13.5px; color:var(--text-dim);}
+
+  .stepper{display:flex; align-items:center; gap:10px;}
+  .stepper button{
+    width:30px; height:30px;
+    border-radius:8px;
+    border:1px solid var(--line);
+    background:var(--panel-2);
+    color:var(--text);
+    font-size:16px;
+    cursor:pointer;
+  }
+  .stepper span{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:15px;
+    font-weight:600;
+    min-width:38px;
+    text-align:center;
+    font-variant-numeric:tabular-nums;
+  }
+
+  .toggle-btn{
+    border:1px solid var(--line);
+    background:var(--panel-2);
+    color:var(--text-dim);
+    border-radius:20px;
+    padding:6px 14px;
+    font-size:12.5px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .toggle-btn.on{background:rgba(45,212,191,0.15); border-color:var(--teal); color:var(--teal);}
+
+  .fuel-row{flex-wrap:wrap;}
+  .fuel-row input{
+    width:70px;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:8px;
+    color:var(--text);
+    padding:7px 8px;
+    font-size:13px;
+  }
+  .fuel-row button{
+    border:1px solid var(--line);
+    background:var(--panel-2);
+    color:var(--text);
+    border-radius:8px;
+    padding:7px 12px;
+    font-size:12.5px;
+    cursor:pointer;
+  }
+  .mileage-result{font-size:13px; color:var(--teal); min-height:16px;}
+
+  .btn-ghost{
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--text-dim);
+    border-radius:12px;
+    padding:10px;
+    font-size:13px;
+    cursor:pointer;
+  }
+
+  .disclaimer{
+    font-size:11.5px;
+    color:var(--text-dim);
+    text-align:center;
+    line-height:1.5;
+    padding-top:18px;
+  }
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:16px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    margin-top:12px;
+  }
+  .panel-title{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:14px;
+    font-weight:600;
+    color:var(--text);
+  }
+  .panel-sub{font-size:11.5px; color:var(--text-dim); margin-top:-8px;}
+
+  .sos-input-row{display:flex; gap:8px;}
+  .sos-input-row input{
+    flex:1;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:8px;
+    color:var(--text);
+    padding:9px 10px;
+    font-size:14px;
+  }
+  .sos-buttons{display:flex; gap:8px;}
+  .sos-btn{
+    flex:1;
+    border:none;
+    border-radius:10px;
+    padding:11px;
+    font-size:13px;
+    font-weight:600;
+    font-family:'Space Grotesk',sans-serif;
+    cursor:pointer;
+  }
+  .sos-btn.call{background:var(--coral); color:#2A0000;}
+  .sos-btn.share{background:var(--panel-2); color:var(--teal); border:1px solid var(--teal);}
+
+  .range-row{display:flex; gap:8px; align-items:center;}
+  .range-row input{
+    width:90px;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:8px;
+    color:var(--text);
+    padding:9px 10px;
+    font-size:14px;
+  }
+  .range-row button{
+    flex:1;
+    border:1px solid var(--line);
+    background:var(--panel-2);
+    color:var(--text);
+    border-radius:8px;
+    padding:10px;
+    font-size:13px;
+    cursor:pointer;
+  }
+  .range-result{font-size:13px; color:var(--teal); min-height:16px;}
+
+  .history-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    cursor:pointer;
+  }
+  .history-header .chev{color:var(--text-dim); font-size:13px; transition:transform .2s;}
+  .history-header .chev.open{transform:rotate(180deg);}
+  .history-list{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    max-height:220px;
+    overflow-y:auto;
+  }
+  .history-empty{font-size:12.5px; color:var(--text-dim);}
+  .history-item{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:10px 12px;
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+  }
+  .history-item .h-date{font-size:11.5px; color:var(--text-dim);}
+  .history-item .h-stats{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:13.5px;
+    font-weight:600;
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .history-item .h-stats span small{
+    font-family:'Inter',sans-serif;
+    font-weight:400;
+    color:var(--text-dim);
+    margin-left:3px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="app-header">
+    <span class="brand">Ride Assistant</span>
+    <span class="status-dot" id="statusDot"></span>
+  </div>
+
+  <div class="hero">
+    <div class="speed-block">
+      <div class="speed-value" id="speedValue">0</div>
+      <div class="speed-unit">km/h</div>
+    </div>
+    <div class="compass-block">
+      <div class="compass">
+        <span class="compass-n">N</span>
+        <div class="compass-needle" id="needle"></div>
+      </div>
+      <div class="compass-label" id="compassLabel">--</div>
+    </div>
+  </div>
+
+  <div class="trip-strip">
+    <div class="trip-stat"><span id="tripDistance">0.0</span><small>km</small></div>
+    <div class="trip-stat"><span id="avgSpeed">0</span><small>avg km/h</small></div>
+    <div class="trip-stat"><span id="tripTime">00:00:00</span><small>samay</small></div>
+  </div>
+
+  <div class="alert-bar" id="alertBar">Shuru karne ke liye neeche "Start Ride" dabayein.</div>
+
+  <div class="controls">
+    <button id="startBtn" class="btn-primary">Start Ride</button>
+
+    <div class="control-row">
+      <label>Speed limit</label>
+      <div class="stepper">
+        <button id="limitDown">−</button>
+        <span id="limitValue">60</span>
+        <button id="limitUp">+</button>
+      </div>
+    </div>
+
+    <div class="control-row">
+      <label>Voice alerts</label>
+      <button id="voiceToggle" class="toggle-btn on">ON</button>
+    </div>
+
+    <div class="control-row">
+      <label>Bhasha</label>
+      <button id="langToggle" class="toggle-btn on">हिंदी</button>
+    </div>
+
+    <div class="control-row fuel-row">
+      <label>Fuel bhara (L)</label>
+      <input type="number" id="fuelInput" placeholder="jaise 5" min="0" step="0.1">
+      <button id="mileageBtn">Mileage nikaalein</button>
+    </div>
+    <div class="mileage-result" id="mileageResult"></div>
+
+    <div class="control-row">
+      <label>Rest reminder</label>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div class="stepper">
+          <button id="restDown">−</button>
+          <span id="restValue">60</span>
+          <button id="restUp">+</button>
+        </div>
+        <button id="restToggle" class="toggle-btn on">ON</button>
+      </div>
+    </div>
+
+    <button id="resetBtn" class="btn-ghost">Trip reset karein</button>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Safety aur SOS</div>
+    <div class="panel-sub">Emergency number ek baar save karein, phone mein hi rahega.</div>
+    <div class="sos-input-row">
+      <input type="tel" id="sosContact" placeholder="Emergency number (jaise 98XXXXXXXX)">
+    </div>
+    <div class="sos-buttons">
+      <button id="sosCallBtn" class="sos-btn call">SOS Call</button>
+      <button id="sosShareBtn" class="sos-btn share">Location Share</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Fuel range estimate</div>
+    <div class="panel-sub" id="rangeSourceLabel">Purani rides ka average mileage use hoga.</div>
+    <div class="range-row">
+      <input type="number" id="rangeFuelInput" placeholder="Tank mein L" min="0" step="0.1">
+      <button id="rangeBtn">Range nikaalein</button>
+    </div>
+    <div class="range-result" id="rangeResult"></div>
+  </div>
+
+  <div class="panel">
+    <div class="history-header" id="historyHeader">
+      <div class="panel-title">Trip history</div>
+      <span class="chev" id="historyChev">▾</span>
+    </div>
+    <div class="history-list" id="historyList" style="display:none;">
+      <div class="history-empty">Loading...</div>
+    </div>
+    <button id="clearHistoryBtn" class="btn-ghost" style="display:none;">History clear karein</button>
+  </div>
+
+  <div class="disclaimer">
+    Phone ko mount karke rakhein aur ride karte waqt screen na dekhein — sirf awaaz sunein. GPS speed aur mileage device aur signal par depend karte hain, ye exact vehicle meter jaisa nahi hoga.
+  </div>
+</div>
+
+<script>
+  const speedValueEl = document.getElementById('speedValue');
+  const needleEl = document.getElementById('needle');
+  const compassLabelEl = document.getElementById('compassLabel');
+  const tripDistanceEl = document.getElementById('tripDistance');
+  const avgSpeedEl = document.getElementById('avgSpeed');
+  const tripTimeEl = document.getElementById('tripTime');
+  const alertBarEl = document.getElementById('alertBar');
+  const startBtn = document.getElementById('startBtn');
+  const limitDownBtn = document.getElementById('limitDown');
+  const limitUpBtn = document.getElementById('limitUp');
+  const limitValueEl = document.getElementById('limitValue');
+  const voiceToggleBtn = document.getElementById('voiceToggle');
+  const langToggleBtn = document.getElementById('langToggle');
+  const fuelInput = document.getElementById('fuelInput');
+  const mileageBtn = document.getElementById('mileageBtn');
+  const mileageResultEl = document.getElementById('mileageResult');
+  const resetBtn = document.getElementById('resetBtn');
+  const statusDot = document.getElementById('statusDot');
+
+  const restDownBtn = document.getElementById('restDown');
+  const restUpBtn = document.getElementById('restUp');
+  const restValueEl = document.getElementById('restValue');
+  const restToggleBtn = document.getElementById('restToggle');
+
+  const sosContactInput = document.getElementById('sosContact');
+  const sosCallBtn = document.getElementById('sosCallBtn');
+  const sosShareBtn = document.getElementById('sosShareBtn');
+
+  const rangeFuelInput = document.getElementById('rangeFuelInput');
+  const rangeBtn = document.getElementById('rangeBtn');
+  const rangeResultEl = document.getElementById('rangeResult');
+  const rangeSourceLabel = document.getElementById('rangeSourceLabel');
+
+  const historyHeader = document.getElementById('historyHeader');
+  const historyChev = document.getElementById('historyChev');
+  const historyListEl = document.getElementById('historyList');
+  const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+
+  // Startup diagnostics — surface likely blockers immediately instead of failing silently later
+  (function initialChecks(){
+    if(window.self !== window.top){
+      setTimeout(() => setAlert('Yeh page ek preview frame ke andar khula hai, jahan GPS block ho sakta hai. Agar Start Ride kaam na kare, is file ko download karke seedha apne phone ke browser (Chrome/Safari) mein kholein.', 'warn'), 300);
+    } else if(!window.isSecureContext){
+      setTimeout(() => setAlert('Is connection par location secure nahi hai (HTTPS chahiye), isliye GPS kaam nahi karega.', 'warn'), 300);
+    } else if(!('geolocation' in navigator)){
+      setTimeout(() => setAlert('Is browser mein location support nahi hai.', 'warn'), 300);
+    }
+  })();
+
+  window.addEventListener('error', function(e){
+    setAlert('Script error: ' + e.message, 'warn');
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    const msg = (e.reason && e.reason.message) ? e.reason.message : String(e.reason);
+    setAlert('Error: ' + msg, 'warn');
+  });
+
+  let tracking = false;
+  let watchId = null;
+  let wakeLock = null;
+
+  let speedLimit = 60;
+  let voiceOn = true;
+  let hindi = true;
+
+  let lastPos = null;      // {lat, lon, time}
+  let lastSpeedKmh = 0;
+  let lastSpeedTime = null;
+  let tripDistanceKm = 0;
+  let tripStartTime = null;
+  let timerInterval = null;
+
+  let lastOverspeedSpoken = 0;
+  let lastHarshSpoken = 0;
+  let lastPeriodicSpoken = 0;
+
+  let restReminderOn = true;
+  let restIntervalMin = 60;
+  let nextRestMarkMin = 60;
+
+  let lastHeadingForTurn = null;
+  let lastTurnSpoken = 0;
+
+  let lastComputedMileage = null;
+  let historyLoaded = false;
+
+  function toRad(v){ return v * Math.PI / 180; }
+
+  function haversineKm(lat1, lon1, lat2, lon2){
+    const R = 6371;
+    const dLat = toRad(lat2-lat1);
+    const dLon = toRad(lon2-lon1);
+    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  function bearing(lat1, lon1, lat2, lon2){
+    const y = Math.sin(toRad(lon2-lon1)) * Math.cos(toRad(lat2));
+    const x = Math.cos(toRad(lat1))*Math.sin(toRad(lat2)) - Math.sin(toRad(lat1))*Math.cos(toRad(lat2))*Math.cos(toRad(lon2-lon1));
+    let deg = toRad ? (Math.atan2(y,x) * 180/Math.PI) : 0;
+    return (deg + 360) % 360;
+  }
+
+  function compassLabel(deg){
+    const dirs = ['उत्तर N','उ-पू NE','पूर्व E','द-पू SE','दक्षिण S','द-प SW','पश्चिम W','उ-प NW'];
+    const idx = Math.round(deg / 45) % 8;
+    return dirs[idx];
+  }
+
+  function speak(text){
+    if(!voiceOn || !('speechSynthesis' in window)) return;
+    if(window.speechSynthesis.speaking) return;
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = hindi ? 'hi-IN' : 'en-IN';
+    u.rate = 1;
+    window.speechSynthesis.speak(u);
+  }
+
+  function setAlert(text, kind){
+    alertBarEl.textContent = text;
+    alertBarEl.className = 'alert-bar' + (kind ? ' ' + kind : '');
+  }
+
+  function formatTime(sec){
+    const h = String(Math.floor(sec/3600)).padStart(2,'0');
+    const m = String(Math.floor((sec%3600)/60)).padStart(2,'0');
+    const s = String(Math.floor(sec%60)).padStart(2,'0');
+    return h+':'+m+':'+s;
+  }
+
+  function updateTripTimer(){
+    if(!tripStartTime) return;
+    const elapsed = (Date.now() - tripStartTime) / 1000;
+    tripTimeEl.textContent = formatTime(elapsed);
+    const hours = elapsed / 3600;
+    avgSpeedEl.textContent = hours > 0 ? Math.round(tripDistanceKm / hours) : 0;
+
+    // Rest / fatigue reminder
+    const elapsedMin = elapsed / 60;
+    if(restReminderOn && elapsedMin >= nextRestMarkMin){
+      nextRestMarkMin += restIntervalMin;
+      setAlert(`Aap ${restIntervalMin} minute se ride kar rahe hain — thoda rest lein.`, 'warn');
+      speak(hindi
+        ? `Aap kaafi der se ride kar rahe hain. Kripya kahin ruk kar thoda aaram karein.`
+        : `You've been riding for a while. Please stop somewhere and take a short rest.`);
+    }
+  }
+
+  // ---------- Trip history (persistent storage) ----------
+  async function saveTripRecord(record){
+    try{
+      await window.storage.set('trip:' + record.timestamp, JSON.stringify(record), false);
+    }catch(e){ /* history is a non-critical feature — fail quietly */ }
+  }
+
+  async function loadTripHistory(){
+    try{
+      const listRes = await window.storage.list('trip:', false);
+      if(!listRes || !listRes.keys || listRes.keys.length === 0) return [];
+      const records = [];
+      for(const key of listRes.keys){
+        try{
+          const r = await window.storage.get(key, false);
+          if(r && r.value) records.push(JSON.parse(r.value));
+        }catch(e){ /* skip unreadable entry */ }
+      }
+      records.sort((a,b) => b.timestamp - a.timestamp);
+      return records;
+    }catch(e){
+      return [];
+    }
+  }
+
+  async function computeAvgMileage(){
+    const hist = await loadTripHistory();
+    const withMileage = hist.filter(h => h.mileage);
+    if(withMileage.length === 0) return null;
+    const sum = withMileage.reduce((s,h) => s + parseFloat(h.mileage), 0);
+    return sum / withMileage.length;
+  }
+
+  function renderHistory(records){
+    if(records.length === 0){
+      historyListEl.innerHTML = '<div class="history-empty">Abhi koi ride save nahi hui. Ek trip complete karke dekhein.</div>';
+      clearHistoryBtn.style.display = 'none';
+      return;
+    }
+    historyListEl.innerHTML = records.map(r => `
+      <div class="history-item">
+        <div class="h-date">${r.date}</div>
+        <div class="h-stats">
+          <span>${r.distanceKm.toFixed(1)}<small>km</small></span>
+          <span>${r.avgSpeedKmh}<small>avg km/h</small></span>
+          <span>${formatTime(r.durationSec)}<small>samay</small></span>
+          ${r.mileage ? `<span>${r.mileage}<small>km/l</small></span>` : ''}
+        </div>
+      </div>
+    `).join('');
+    clearHistoryBtn.style.display = 'block';
+  }
+
+  async function refreshHistoryPanel(){
+    historyListEl.innerHTML = '<div class="history-empty">Loading...</div>';
+    const records = await loadTripHistory();
+    renderHistory(records);
+    historyLoaded = true;
+  }
+
+  function handlePosition(pos){
+    const { latitude, longitude, speed, heading, accuracy } = pos.coords;
+    const now = Date.now();
+
+    // Speed: prefer GPS-reported speed, else derive from distance/time
+    let speedKmh = null;
+    if(speed !== null && speed !== undefined && speed >= 0){
+      speedKmh = speed * 3.6;
+    } else if(lastPos && accuracy < 50){
+      const dKm = haversineKm(lastPos.lat, lastPos.lon, latitude, longitude);
+      const dHrs = (now - lastPos.time) / 3600000;
+      speedKmh = dHrs > 0 ? dKm / dHrs : 0;
+    }
+    if(speedKmh === null) speedKmh = lastSpeedKmh;
+    speedKmh = Math.max(0, Math.round(speedKmh));
+
+    // Distance accumulation (filter noisy jumps)
+    if(lastPos && accuracy < 50){
+      const dKm = haversineKm(lastPos.lat, lastPos.lon, latitude, longitude);
+      const dSec = (now - lastPos.time) / 1000;
+      if(dSec >= 1 && dKm < 1){ // ignore implausible single-tick jumps
+        tripDistanceKm += dKm;
+      }
+    }
+
+    // Heading
+    let headingDeg = (heading !== null && heading !== undefined && !isNaN(heading)) ? heading : null;
+    if(headingDeg === null && lastPos){
+      headingDeg = bearing(lastPos.lat, lastPos.lon, latitude, longitude);
+    }
+
+    // Update UI
+    speedValueEl.textContent = speedKmh;
+    speedValueEl.className = 'speed-value' + (speedKmh > speedLimit ? ' over' : '');
+    if(headingDeg !== null){
+      needleEl.style.transform = 'rotate(' + headingDeg + 'deg)';
+      compassLabelEl.textContent = compassLabel(headingDeg) + ' · ' + Math.round(headingDeg) + '°';
+    }
+    tripDistanceEl.textContent = tripDistanceKm.toFixed(1);
+
+    // Over-speed voice alert
+    if(speedKmh > speedLimit && now - lastOverspeedSpoken > 20000){
+      lastOverspeedSpoken = now;
+      setAlert('Speed limit se tez — dhyan se chalayein.', 'warn');
+      speak(hindi
+        ? `Savdhan, aapki speed ${speedKmh} kilometer prati ghanta hai, jo limit se zyada hai.`
+        : `Caution, your speed is ${speedKmh} kilometers per hour, above your set limit.`);
+    }
+
+    // Harsh deceleration (sudden braking) alert
+    if(lastSpeedTime && (now - lastSpeedTime) < 3000){
+      const drop = lastSpeedKmh - speedKmh;
+      if(drop > 25 && now - lastHarshSpoken > 15000){
+        lastHarshSpoken = now;
+        setAlert('Achanak speed kam hui — peeche se aane wale vehicle se savdhan rahein.', 'warn');
+        speak(hindi ? 'Achanak brake laga hai, savdhan rahein.' : 'Sudden braking detected, stay alert.');
+      }
+    }
+
+    // Periodic status update (every 2 minutes), only if no recent warning
+    if(now - lastPeriodicSpoken > 120000 && speedKmh <= speedLimit){
+      lastPeriodicSpoken = now;
+      setAlert('Sab thik hai — speed ' + speedKmh + ' km/h, trip ' + tripDistanceKm.toFixed(1) + ' km.', 'ok');
+      speak(hindi
+        ? `Aapki speed ${speedKmh} kilometer prati ghanta hai, trip distance ${tripDistanceKm.toFixed(1)} kilometer.`
+        : `Your speed is ${speedKmh} kilometers per hour, trip distance ${tripDistanceKm.toFixed(1)} kilometers.`);
+    }
+
+    // Sharp turn / cornering alert
+    if(headingDeg !== null && lastHeadingForTurn !== null && speedKmh > 15){
+      let diff = Math.abs(((headingDeg - lastHeadingForTurn + 540) % 360) - 180);
+      if(diff > 40 && now - lastTurnSpoken > 15000){
+        lastTurnSpoken = now;
+        setAlert('Tez mod aa raha hai — speed thodi kam karein.', 'warn');
+        speak(hindi ? 'Tez mod hai, speed kam karein.' : 'Sharp turn ahead, slow down.');
+      }
+    }
+    if(headingDeg !== null) lastHeadingForTurn = headingDeg;
+
+    lastPos = { lat: latitude, lon: longitude, time: now };
+    lastSpeedKmh = speedKmh;
+    lastSpeedTime = now;
+  }
+
+  function handleError(err){
+    const codeNames = {1:'Permission denied', 2:'Position unavailable', 3:'Timeout'};
+    const codeName = codeNames[err.code] || ('code ' + err.code);
+    setAlert('GPS error (' + codeName + '): ' + err.message, 'warn');
+    stopTracking(true);
+  }
+
+  async function requestWakeLock(){
+    try{
+      if('wakeLock' in navigator){
+        wakeLock = await navigator.wakeLock.request('screen');
+      }
+    }catch(e){ /* wake lock not critical, fail silently */ }
+  }
+
+  function startTracking(){
+    if(!('geolocation' in navigator)){
+      setAlert('Is browser mein location support nahi hai.', 'warn');
+      return;
+    }
+    try{
+      tracking = true;
+      tripStartTime = tripStartTime || Date.now();
+      nextRestMarkMin = restIntervalMin;
+      startBtn.textContent = 'Stop Ride';
+      startBtn.classList.add('stop');
+      statusDot.classList.add('live');
+      setAlert('Tracking shuru — ride safe rahe!', 'ok');
+      speak(hindi ? 'Ride tracking shuru ho gayi hai. Safe ride!' : 'Ride tracking started. Safe ride!');
+      requestWakeLock();
+
+      watchId = navigator.geolocation.watchPosition(handlePosition, handleError, {
+        enableHighAccuracy: true,
+        maximumAge: 1000,
+        timeout: 10000
+      });
+
+      timerInterval = setInterval(updateTripTimer, 1000);
+    }catch(err){
+      tracking = false;
+      startBtn.textContent = 'Start Ride';
+      startBtn.classList.remove('stop');
+      statusDot.classList.remove('live');
+      setAlert('Start karne mein error: ' + (err && err.message ? err.message : err), 'warn');
+    }
+  }
+
+  function stopTracking(keepAlert){
+    tracking = false;
+    startBtn.textContent = 'Start Ride';
+    startBtn.classList.remove('stop');
+    statusDot.classList.remove('live');
+    if(watchId !== null) navigator.geolocation.clearWatch(watchId);
+    if(timerInterval) clearInterval(timerInterval);
+    if(wakeLock){ wakeLock.release().catch(()=>{}); wakeLock = null; }
+    if(!keepAlert){
+      setAlert('Ride ruk gayi hai. Trip data safe hai — "Start Ride" se dubara shuru karein.');
+    }
+
+    if(tripDistanceKm > 0.05 && tripStartTime){
+      const durationSec = (Date.now() - tripStartTime) / 1000;
+      const hours = durationSec / 3600;
+      const record = {
+        timestamp: Date.now(),
+        date: new Date().toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }),
+        distanceKm: tripDistanceKm,
+        avgSpeedKmh: hours > 0 ? Math.round(tripDistanceKm / hours) : 0,
+        durationSec: durationSec,
+        mileage: lastComputedMileage
+      };
+      saveTripRecord(record).then(() => {
+        if(historyLoaded) refreshHistoryPanel();
+      });
+    }
+  }
+
+  startBtn.addEventListener('click', () => {
+    if(tracking) stopTracking(); else startTracking();
+  });
+
+  limitDownBtn.addEventListener('click', () => {
+    speedLimit = Math.max(10, speedLimit - 5);
+    limitValueEl.textContent = speedLimit;
+  });
+  limitUpBtn.addEventListener('click', () => {
+    speedLimit = Math.min(160, speedLimit + 5);
+    limitValueEl.textContent = speedLimit;
+  });
+
+  voiceToggleBtn.addEventListener('click', () => {
+    voiceOn = !voiceOn;
+    voiceToggleBtn.textContent = voiceOn ? 'ON' : 'OFF';
+    voiceToggleBtn.classList.toggle('on', voiceOn);
+  });
+
+  langToggleBtn.addEventListener('click', () => {
+    hindi = !hindi;
+    langToggleBtn.textContent = hindi ? 'हिंदी' : 'English';
+  });
+
+  mileageBtn.addEventListener('click', () => {
+    const fuel = parseFloat(fuelInput.value);
+    if(!fuel || fuel <= 0){
+      mileageResultEl.textContent = 'Pehle fuel (litres) daalein.';
+      return;
+    }
+    const mileage = (tripDistanceKm / fuel).toFixed(1);
+    lastComputedMileage = mileage;
+    mileageResultEl.textContent = `Trip mileage: ${mileage} km/litre (${tripDistanceKm.toFixed(1)} km / ${fuel} L)`;
+    speak(hindi ? `Aapki trip mileage ${mileage} kilometer prati litre hai.` : `Your trip mileage is ${mileage} kilometers per litre.`);
+  });
+
+  restDownBtn.addEventListener('click', () => {
+    restIntervalMin = Math.max(15, restIntervalMin - 15);
+    restValueEl.textContent = restIntervalMin;
+  });
+  restUpBtn.addEventListener('click', () => {
+    restIntervalMin = Math.min(120, restIntervalMin + 15);
+    restValueEl.textContent = restIntervalMin;
+  });
+  restToggleBtn.addEventListener('click', () => {
+    restReminderOn = !restReminderOn;
+    restToggleBtn.textContent = restReminderOn ? 'ON' : 'OFF';
+    restToggleBtn.classList.toggle('on', restReminderOn);
+  });
+
+  // ---------- SOS ----------
+  (async function loadSosContact(){
+    try{
+      const r = await window.storage.get('sos:contact', false);
+      if(r && r.value) sosContactInput.value = r.value;
+    }catch(e){ /* no saved contact yet */ }
+  })();
+
+  sosContactInput.addEventListener('blur', async () => {
+    const val = sosContactInput.value.trim();
+    if(!val) return;
+    try{ await window.storage.set('sos:contact', val, false); }
+    catch(e){ /* non-critical — will just need to be re-entered */ }
+  });
+
+  sosCallBtn.addEventListener('click', () => {
+    const num = sosContactInput.value.trim();
+    if(!num){
+      setAlert('Pehle emergency number daal kar save karein.', 'warn');
+      return;
+    }
+    window.location.href = 'tel:' + num;
+  });
+
+  sosShareBtn.addEventListener('click', () => {
+    function shareLink(lat, lon){
+      const mapsLink = `https://www.google.com/maps?q=${lat},${lon}`;
+      const text = hindi ? 'Main abhi yahan hoon: ' : "I'm currently here: ";
+      if(navigator.share){
+        navigator.share({ title: 'Live location', text: text, url: mapsLink }).catch(() => {});
+      } else if(navigator.clipboard){
+        navigator.clipboard.writeText(text + mapsLink).then(() => {
+          setAlert('Location link copy ho gaya — kisi ko bhej dein.', 'ok');
+        });
+      } else {
+        setAlert('Location link: ' + mapsLink, 'ok');
+      }
+    }
+    if(lastPos){
+      shareLink(lastPos.lat, lastPos.lon);
+    } else if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(
+        (pos) => shareLink(pos.coords.latitude, pos.coords.longitude),
+        () => setAlert('Location nahi mil paayi, permission check karein.', 'warn')
+      );
+    }
+  });
+
+  // ---------- Fuel range estimate ----------
+  rangeBtn.addEventListener('click', async () => {
+    const fuel = parseFloat(rangeFuelInput.value);
+    if(!fuel || fuel <= 0){
+      rangeResultEl.textContent = 'Pehle tank ka fuel (litres) daalein.';
+      return;
+    }
+    rangeResultEl.textContent = 'Calculate ho raha hai...';
+    let avgMileage = await computeAvgMileage();
+    let source = hindi ? 'purani rides ke average par based' : 'based on your ride history average';
+    if(avgMileage === null && lastComputedMileage){
+      avgMileage = parseFloat(lastComputedMileage);
+      source = hindi ? 'is trip ke mileage par based' : "based on this trip's mileage";
+    }
+    if(avgMileage === null){
+      avgMileage = 35; // reasonable default assumption for a two-wheeler
+      source = hindi ? 'default anumaan (35 km/l) — ek trip ka mileage record karein for accurate value' : 'default estimate (35 km/l) — record a trip mileage for accuracy';
+    }
+    const range = (fuel * avgMileage).toFixed(0);
+    rangeSourceLabel.textContent = source.charAt(0).toUpperCase() + source.slice(1) + '.';
+    rangeResultEl.textContent = `Estimated range: ${range} km (${avgMileage.toFixed ? avgMileage.toFixed(1) : avgMileage} km/l par)`;
+    speak(hindi ? `Aapki estimated range lagbhag ${range} kilometer hai.` : `Your estimated range is approximately ${range} kilometers.`);
+  });
+
+  // ---------- Trip history panel ----------
+  historyHeader.addEventListener('click', async () => {
+    const isOpen = historyListEl.style.display !== 'none';
+    if(isOpen){
+      historyListEl.style.display = 'none';
+      clearHistoryBtn.style.display = 'none';
+      historyChev.classList.remove('open');
+    } else {
+      historyListEl.style.display = 'flex';
+      historyChev.classList.add('open');
+      await refreshHistoryPanel();
+    }
+  });
+
+  clearHistoryBtn.addEventListener('click', async () => {
+    try{
+      const listRes = await window.storage.list('trip:', false);
+      if(listRes && listRes.keys){
+        for(const key of listRes.keys){
+          await window.storage.delete(key, false);
+        }
+      }
+      renderHistory([]);
+      setAlert('Trip history clear ho gayi.');
+    }catch(e){
+      setAlert('History clear karne mein error aayi.', 'warn');
+    }
+  });
+
+  resetBtn.addEventListener('click', () => {
+    tripDistanceKm = 0;
+    tripStartTime = tracking ? Date.now() : null;
+    nextRestMarkMin = restIntervalMin;
+    lastPos = null;
+    lastComputedMileage = null;
+    lastHeadingForTurn = null;
+    tripDistanceEl.textContent = '0.0';
+    avgSpeedEl.textContent = '0';
+    tripTimeEl.textContent = '00:00:00';
+    mileageResultEl.textContent = '';
+    fuelInput.value = '';
+    setAlert('Trip reset ho gaya.');
+  });
+</script>
+</body>
+</html>
