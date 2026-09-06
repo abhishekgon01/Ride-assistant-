@@ -1825,18 +1825,31 @@
 
     recognition = new SR();
     recognition.lang = hindi ? 'hi-IN' : 'en-IN';
-    recognition.interimResults = false;
+    recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 
     listening = true;
     talkBtn.classList.add('listening');
     talkBtn.textContent = '🎙️ Sun raha hoon...';
-    setAiStatus('Bolna shuru karein...');
+    setAiStatus(hindi ? 'Ab boliye...' : 'Speak now...');
     let gotResult = false;
+    let heardSpeech = false;
+
+    recognition.onspeechstart = () => {
+      heardSpeech = true;
+      setAiStatus(hindi ? 'Awaaz mil rahi hai...' : 'Hearing you...');
+    };
 
     recognition.onresult = async (event) => {
+      const last = event.results[event.results.length - 1];
+      const transcript = last[0].transcript;
+
+      if(!last.isFinal){
+        setAiStatus(hindi ? `Sun raha hoon: "${transcript}"` : `Hearing: "${transcript}"`);
+        return;
+      }
+
       gotResult = true;
-      const transcript = event.results[0][0].transcript;
       setAiStatus('Aapne kaha: "' + transcript + '"');
 
       const nearbyIntent = detectNearbyIntent(transcript);
@@ -1880,7 +1893,15 @@
       talkBtn.classList.remove('listening');
       talkBtn.textContent = '🎤 Baat karein';
       if(!gotResult){
-        setAiStatus(hindi ? 'Kuch sunayi nahi diya. Dobara try karein.' : 'Nothing was heard. Please try again.');
+        if(!heardSpeech){
+          setAiStatus(hindi
+            ? '⚠️ Microphone se koi awaaz detect nahi hui. Mic permission check karein (address bar ke paas lock icon → Microphone → Allow), ya check karein mic kisi cheez se dhaka toh nahi.'
+            : '⚠️ No audio was detected from the microphone. Check mic permission (tap the lock icon near the address bar → Microphone → Allow), or make sure the mic is not covered.');
+        } else {
+          setAiStatus(hindi
+            ? 'Awaaz suni gayi par samajh nahi paya — dobara, thoda saaf aur zor se bolke try karein.'
+            : 'Your voice was heard but not understood — please try again, speaking clearly.');
+        }
       }
     };
 
