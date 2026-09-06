@@ -692,6 +692,7 @@
 
   let map = null;
   let marker = null;
+  let routeLine = null;
   let lastGeocodeTime = 0;
   let lastWeatherFetch = 0;
   let destination = null;
@@ -974,6 +975,7 @@
     destStatusEl.textContent = hindi ? `🎉 Aap "${destination.name}" pahunch gaye hain!` : `🎉 You've arrived at "${destination.name}"!`;
     speak(hindi ? 'Aap apni manzil par pahunch gaye hain!' : "You've arrived at your destination!");
     if(destMarker && map){ map.removeLayer(destMarker); destMarker = null; }
+    if(routeLine && map){ map.removeLayer(routeLine); routeLine = null; }
     navPanelEl.style.display = 'none';
     destination = null;
   }
@@ -1021,7 +1023,17 @@
     }
   };
 
-  function updateMap(lat, lon){
+  function bikeIcon(headingDeg){
+    const deg = headingDeg || 0;
+    return L.divIcon({
+      className: 'bike-icon',
+      html: `<div style="font-size:26px; transform:rotate(${deg}deg); transform-origin:center; filter:drop-shadow(0 0 3px rgba(0,0,0,0.6));">🏍️</div>`,
+      iconSize: [26, 26],
+      iconAnchor: [13, 13]
+    });
+  }
+
+  function updateMap(lat, lon, headingDeg){
     try{
       if(!map){
         map = L.map('liveMap', { zoomControl: false, attributionControl: true }).setView([lat, lon], 16);
@@ -1029,11 +1041,10 @@
           maxZoom: 19,
           attribution: '© OpenStreetMap'
         }).addTo(map);
-        marker = L.circleMarker([lat, lon], {
-          radius: 8, color: '#F5A623', weight: 2, fillColor: '#F5A623', fillOpacity: 0.9
-        }).addTo(map);
+        marker = L.marker([lat, lon], { icon: bikeIcon(headingDeg) }).addTo(map);
       } else {
         marker.setLatLng([lat, lon]);
+        marker.setIcon(bikeIcon(headingDeg));
         map.setView([lat, lon], map.getZoom(), { animate: false });
       }
     }catch(e){ /* map is a visual extra — ride tracking continues without it */ }
@@ -1084,7 +1095,7 @@
 
   async function getRouteWithSteps(fromLat, fromLon, toLat, toLon){
     try{
-      const url = `https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}?overview=false&steps=true`;
+      const url = `https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}?overview=full&geometries=geojson&steps=true`;
       const res = await fetch(url);
       const data = await res.json();
       if(data.routes && data.routes.length > 0){
@@ -1097,7 +1108,10 @@
           distance: s.distance,
           name: s.name
         }));
-        return { distanceKm: route.distance / 1000, durationMin: route.duration / 60, steps };
+        const coords = (route.geometry && route.geometry.coordinates)
+          ? route.geometry.coordinates.map(c => [c[1], c[0]]) // [lon,lat] -> [lat,lon] for Leaflet
+          : [];
+        return { distanceKm: route.distance / 1000, durationMin: route.duration / 60, steps, coords };
       }
     }catch(e){ /* fall through — caller uses straight-line fallback */ }
     return null;
@@ -1381,7 +1395,7 @@
     }
     tripDistanceEl.textContent = tripDistanceKm.toFixed(1);
 
-    updateMap(latitude, longitude);
+    updateMap(latitude, longitude, headingDeg);
     updatePlaceName(latitude, longitude);
     fetchWeather(latitude, longitude);
     checkWatches(latitude, longitude);
@@ -1824,6 +1838,14 @@
         navIconEl.textContent = info.icon;
         navInstructionEl.textContent = hindi ? info.hi : info.en;
         navDistanceEl.textContent = '--';
+
+        if(map && route.coords && route.coords.length > 1){
+          try{
+            if(routeLine) map.removeLayer(routeLine);
+            routeLine = L.polyline(route.coords, { color: '#3B82F6', weight: 5, opacity: 0.85 }).addTo(map);
+            map.fitBounds(routeLine.getBounds(), { padding: [24, 24] });
+          }catch(e){ /* route line is a visual extra */ }
+        }
       } else {
         const straight = haversineKm(lastPos.lat, lastPos.lon, place.lat, place.lon);
         destStatusEl.textContent = `🎯 ${place.name} — ${straight.toFixed(1)} km (${hindi ? 'seedhi-line' : 'straight-line'})`;
@@ -1838,6 +1860,7 @@
   clearDestBtn.addEventListener('click', () => {
     destination = null;
     if(destMarker && map){ map.removeLayer(destMarker); destMarker = null; }
+    if(routeLine && map){ map.removeLayer(routeLine); routeLine = null; }
     destInput.value = '';
     destStatusEl.textContent = '';
     navPanelEl.style.display = 'none';
