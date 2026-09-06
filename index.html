@@ -469,6 +469,10 @@
       <input type="text" id="userNameInput" placeholder="Aapka naam">
     </div>
     <div class="sos-input-row">
+      <input type="password" id="apiKeyInput" placeholder="Anthropic API key (GitHub Pages ke liye, optional)">
+    </div>
+    <div class="panel-sub" style="margin-top:-6px;">Sirf tabhi zaroori hai jab GitHub Pages jaisi jagah host kar rahe hon — key sirf aapke phone mein save hoti hai, kahin bheji nahi jaati. console.anthropic.com se free key milti hai.</div>
+    <div class="sos-input-row">
       <select id="voiceSelect" style="flex:1; background:var(--panel-2); border:1px solid var(--line); border-radius:8px; color:var(--text); padding:9px 10px; font-size:13px;">
         <option value="">Best available (auto)</option>
       </select>
@@ -614,6 +618,7 @@
   const aiToggleBtn = document.getElementById('aiToggle');
   const aiNameInput = document.getElementById('aiNameInput');
   const userNameInput = document.getElementById('userNameInput');
+  const apiKeyInput = document.getElementById('apiKeyInput');
   const voiceSelect = document.getElementById('voiceSelect');
   const testVoiceBtn = document.getElementById('testVoiceBtn');
   const talkBtn = document.getElementById('talkBtn');
@@ -678,6 +683,7 @@
   let aiFriendOn = true;
   let assistantName = 'Saathi';
   let userName = '';
+  let anthropicApiKey = '';
   let lastMilestoneKm = 0;
   let recognition = null;
   let listening = false;
@@ -770,10 +776,10 @@
 
   function detectNearbyIntent(text){
     const t = text.toLowerCase();
-    if(/petrol|fuel|pump|diesel/.test(t)) return { filter: 'node["amenity"="fuel"]', label: hindi ? 'petrol pump' : 'petrol pump' };
-    if(/hotel|room|stay|rukne/.test(t)) return { filter: 'node["tourism"="hotel"]', label: hindi ? 'hotel' : 'hotel' };
-    if(/khana|restaurant|dhaba|food|bhojan|bhookh|hungry/.test(t)) return { filter: 'node["amenity"="restaurant"]', label: hindi ? 'restaurant' : 'restaurant' };
-    if(/\batm\b|paisa nikal|cash/.test(t)) return { filter: 'node["amenity"="atm"]', label: 'ATM' };
+    if(/petrol|fuel|pump|diesel|पेट्रोल|पंप|डीज़ल|डीजल/.test(t)) return { filter: 'node["amenity"="fuel"]', label: hindi ? 'petrol pump' : 'petrol pump' };
+    if(/hotel|room|stay|rukne|होटल|कमरा|रुकने/.test(t)) return { filter: 'node["tourism"="hotel"]', label: hindi ? 'hotel' : 'hotel' };
+    if(/khana|restaurant|dhaba|food|bhojan|bhookh|hungry|खाना|रेस्टोरेंट|ढाबा|भूख/.test(t)) return { filter: 'node["amenity"="restaurant"]', label: hindi ? 'restaurant' : 'restaurant' };
+    if(/\batm\b|paisa nikal|cash|एटीएम|पैसा निकाल|कैश/.test(t)) return { filter: 'node["amenity"="atm"]', label: 'ATM' };
     return null;
   }
 
@@ -1185,13 +1191,25 @@
   }
 
   async function askAI(userText, context){
+    // Inside Claude's own artifact preview, this call is proxied automatically (no key needed).
+    // Outside it (e.g. hosted on GitHub Pages), a personal Anthropic API key is required.
+    const insideClaudePreview = !!window.storage;
+    if(!insideClaudePreview && !anthropicApiKey){
+      return null; // no way to reach the API here — caller falls back to a canned message
+    }
     try{
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 9000);
       const sys = `Tum "${assistantName}" ho, ek dost jaisa AI riding companion jo ${userName ? userName : 'rider'} ke saath bike/scooter ride ke dauraan baat karta hai. Hamesha casual Hinglish mein (Hindi+English mix, Roman script), warm aur caring tone mein, sirf 1-2 chhoti lines mein jawab do — jaise ek achha dost bolta hai, lecture nahi. Agar zaroori ho toh halka safety reminder de sakte ho par natural andaaz mein. Current context: ${context}`;
+      const headers = { "Content-Type": "application/json" };
+      if(!insideClaudePreview && anthropicApiKey){
+        headers["x-api-key"] = anthropicApiKey;
+        headers["anthropic-version"] = "2023-06-01";
+        headers["anthropic-dangerous-direct-browser-access"] = "true";
+      }
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         signal: controller.signal,
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
@@ -1201,6 +1219,7 @@
         })
       });
       clearTimeout(timeoutId);
+      if(!response.ok) return null;
       const data = await response.json();
       const textBlock = (data.content || []).find(b => b.type === 'text');
       return textBlock ? textBlock.text.trim() : null;
@@ -1716,6 +1735,10 @@
       if(r2 && r2.value){ userName = r2.value; userNameInput.value = r2.value; }
     }catch(e){ /* not saved yet */ }
     try{
+      const r4 = await storageAdapter.get('anthropic:apikey');
+      if(r4 && r4.value){ anthropicApiKey = r4.value; apiKeyInput.value = r4.value; }
+    }catch(e){ /* not saved yet */ }
+    try{
       const r3 = await storageAdapter.get('voice:selected');
       if(r3 && r3.value){ selectedVoiceURI = r3.value; populateVoiceSelect(); }
     }catch(e){ /* not saved yet */ }
@@ -1751,6 +1774,12 @@
     const val = userNameInput.value.trim();
     userName = val;
     try{ await storageAdapter.set('assistant:username', val); }catch(e){}
+  });
+
+  apiKeyInput.addEventListener('blur', async () => {
+    const val = apiKeyInput.value.trim();
+    anthropicApiKey = val;
+    try{ await storageAdapter.set('anthropic:apikey', val); }catch(e){}
   });
 
   aiToggleBtn.addEventListener('click', () => {
