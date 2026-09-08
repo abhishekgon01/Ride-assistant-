@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Ride Assistant</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0E1218">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -18,6 +22,38 @@
     --amber:#F5A623;
     --teal:#2DD4BF;
     --coral:#FF5A5A;
+  }
+  body[data-theme="light"]{
+    --bg:#F5F3EE;
+    --panel:#FFFFFF;
+    --panel-2:#EDEAE2;
+    --line:#D8D3C7;
+    --text:#161616;
+    --text-dim:#5A5648;
+    --amber:#B8720A;
+    --teal:#0E8577;
+    --coral:#C23B3B;
+  }
+  body{transition:background .3s;}
+  .crash-overlay{
+    display:none;
+    position:fixed; inset:0;
+    background:rgba(10,8,8,0.96);
+    z-index:9999;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:30px;
+  }
+  .crash-overlay.show{display:flex;}
+  .crash-count{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:72px;
+    font-weight:700;
+    color:var(--coral);
+    line-height:1;
+    margin:18px 0;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
   html,body{height:100%;}
@@ -104,6 +140,8 @@
     position:relative;
     bottom:-8px;
     transition:transform .3s ease-out;
+    will-change:transform;
+    backface-visibility:hidden;
   }
   .compass-label{font-size:12px; color:var(--text-dim); font-variant-numeric:tabular-nums;}
 
@@ -395,7 +433,10 @@
 <div class="app">
   <div class="app-header">
     <span class="brand">Ride Assistant</span>
-    <span class="status-dot" id="statusDot"></span>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <button id="themeToggle" style="background:none; border:1px solid var(--line); border-radius:20px; color:var(--text-dim); font-size:13px; padding:5px 10px; cursor:pointer;">🌙 Auto</button>
+      <span class="status-dot" id="statusDot"></span>
+    </div>
   </div>
 
   <div class="hero">
@@ -450,6 +491,7 @@
       <button id="setDestBtn" class="sos-btn share">Set</button>
       <button id="clearDestBtn" class="sos-btn" style="background:var(--panel-2); color:var(--text-dim); border:1px solid var(--line);">Clear</button>
     </div>
+    <button id="retryRouteBtn" class="btn-ghost" style="display:none; margin-top:8px;">🔄 Turn-by-turn dobara try karein</button>
     <div class="ai-status" id="destStatus"></div>
   </div>
 
@@ -471,7 +513,17 @@
     <div class="sos-input-row">
       <input type="password" id="apiKeyInput" placeholder="Anthropic API key (GitHub Pages ke liye, optional)">
     </div>
-    <div class="panel-sub" style="margin-top:-6px;">Sirf tabhi zaroori hai jab GitHub Pages jaisi jagah host kar rahe hon — key sirf aapke phone mein save hoti hai, kahin bheji nahi jaati. console.anthropic.com se free key milti hai.</div>
+    <div class="sos-input-row">
+      <input type="password" id="geminiKeyInput" placeholder="Gemini API key (free backup, optional)">
+    </div>
+    <div class="panel-sub" style="margin-top:-6px;">Sirf tabhi zaroori hai jab GitHub Pages jaisi jagah host kar rahe hon — key sirf aapke phone mein save hoti hai, kahin bheji nahi jaati. console.anthropic.com ya aistudio.google.com se free key milti hai.</div>
+    <div class="sos-input-row">
+      <input type="password" id="elevenLabsKeyInput" placeholder="ElevenLabs API key (Anika voice ke liye, optional)">
+    </div>
+    <div class="sos-input-row">
+      <input type="text" id="elevenLabsVoiceInput" placeholder="Voice ID" value="ecp3DWciuUyW7BYM7II1">
+    </div>
+    <div class="panel-sub" style="margin-top:-6px;">Anika - Sweet and Lively voice ke liye: elevenlabs.io par jaakar Voice Library mein "Anika" search karein, "Anika - Sweet and Lively" ko apni library mein add karein, phir yahan apni key daal dein. Bina key ke phone ki built-in voice use hogi.</div>
     <div class="sos-input-row">
       <select id="voiceSelect" style="flex:1; background:var(--panel-2); border:1px solid var(--line); border-radius:8px; color:var(--text); padding:9px 10px; font-size:13px;">
         <option value="">Best available (auto)</option>
@@ -493,7 +545,7 @@
     <button id="startBtn" class="btn-primary">Start Ride</button>
 
     <div class="control-row">
-      <label>Speed limit</label>
+      <label>Speed limit <span id="limitAutoTag" style="display:none; color:var(--teal); font-size:11px;">(auto)</span></label>
       <div class="stepper">
         <button id="limitDown">−</button>
         <span id="limitValue">60</span>
@@ -571,6 +623,15 @@
   </div>
 </div>
 
+<div class="crash-overlay" id="crashOverlay">
+  <div style="font-size:48px;">⚠️</div>
+  <div style="font-size:20px; font-weight:600; color:var(--coral); margin-top:12px;">Possible crash detect hua!</div>
+  <div style="font-size:14px; color:var(--text-dim); margin-top:8px; max-width:280px;">Agar aap theek hain, neeche cancel dabayein.</div>
+  <div class="crash-count" id="crashCount">10</div>
+  <div style="font-size:13px; color:var(--text-dim); margin-bottom:20px;">Warna emergency contact ko location bhej denge.</div>
+  <button id="crashCancelBtn" style="background:var(--teal); color:#04211D; border:none; border-radius:14px; padding:16px 34px; font-size:16px; font-weight:600; cursor:pointer;">✅ Main theek hoon</button>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
   const speedValueEl = document.getElementById('speedValue');
@@ -588,6 +649,7 @@
   const limitDownBtn = document.getElementById('limitDown');
   const limitUpBtn = document.getElementById('limitUp');
   const limitValueEl = document.getElementById('limitValue');
+  const limitAutoTag = document.getElementById('limitAutoTag');
   const voiceToggleBtn = document.getElementById('voiceToggle');
   const langToggleBtn = document.getElementById('langToggle');
   const fuelInput = document.getElementById('fuelInput');
@@ -595,6 +657,10 @@
   const mileageResultEl = document.getElementById('mileageResult');
   const resetBtn = document.getElementById('resetBtn');
   const statusDot = document.getElementById('statusDot');
+  const themeToggle = document.getElementById('themeToggle');
+  const crashOverlay = document.getElementById('crashOverlay');
+  const crashCount = document.getElementById('crashCount');
+  const crashCancelBtn = document.getElementById('crashCancelBtn');
 
   const restDownBtn = document.getElementById('restDown');
   const restUpBtn = document.getElementById('restUp');
@@ -619,6 +685,9 @@
   const aiNameInput = document.getElementById('aiNameInput');
   const userNameInput = document.getElementById('userNameInput');
   const apiKeyInput = document.getElementById('apiKeyInput');
+  const geminiKeyInput = document.getElementById('geminiKeyInput');
+  const elevenLabsKeyInput = document.getElementById('elevenLabsKeyInput');
+  const elevenLabsVoiceInput = document.getElementById('elevenLabsVoiceInput');
   const voiceSelect = document.getElementById('voiceSelect');
   const testVoiceBtn = document.getElementById('testVoiceBtn');
   const talkBtn = document.getElementById('talkBtn');
@@ -630,6 +699,7 @@
   const destInput = document.getElementById('destInput');
   const setDestBtn = document.getElementById('setDestBtn');
   const clearDestBtn = document.getElementById('clearDestBtn');
+  const retryRouteBtn = document.getElementById('retryRouteBtn');
   const destStatusEl = document.getElementById('destStatus');
 
   // Startup diagnostics — surface likely blockers immediately instead of failing silently later
@@ -656,6 +726,9 @@
   let wakeLock = null;
 
   let speedLimit = 60;
+  let lastManualLimitChange = 0;
+  let lastRoadTypeCheck = 0;
+  let lastRoadTypeCheckPos = null;
   let voiceOn = true;
   let hindi = true;
 
@@ -684,6 +757,21 @@
   let assistantName = 'Saathi';
   let userName = '';
   let anthropicApiKey = '';
+  let geminiApiKey = '';
+  let elevenLabsApiKey = '';
+  let elevenLabsVoiceId = 'ecp3DWciuUyW7BYM7II1'; // Anika - Sweet and Lively
+  let ttsBusy = false;
+  let ttsBusySince = 0;
+  let themeMode = 'auto'; // 'auto' | 'light' | 'dark'
+
+  // Watchdog: Android Chrome's speechSynthesis can silently freeze after long usage.
+  // If we've been "busy" for too long with no onend/onerror firing, force-clear it.
+  setInterval(() => {
+    if(ttsBusy && Date.now() - ttsBusySince > 15000){
+      try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
+      ttsBusy = false;
+    }
+  }, 5000);
   let lastMilestoneKm = 0;
   let recognition = null;
   let listening = false;
@@ -730,6 +818,27 @@
     return hindi ? dirsHi[idx] : dirsEn[idx];
   }
 
+  function nearbyCacheKey(osmFilter, lat, lon){
+    // Round to ~110m grid so nearby repeat requests in the same area hit the same cache entry
+    const gLat = lat.toFixed(3);
+    const gLon = lon.toFixed(3);
+    return `nearby:${osmFilter}:${gLat}:${gLon}`;
+  }
+
+  function getNearbyCache(key){
+    try{
+      const raw = sessionStorage.getItem(key);
+      if(!raw) return null;
+      const parsed = JSON.parse(raw);
+      if(Date.now() - parsed.ts > 300000) return null; // 5 min TTL
+      return parsed.elements;
+    }catch(e){ return null; }
+  }
+
+  function setNearbyCache(key, elements){
+    try{ sessionStorage.setItem(key, JSON.stringify({ ts: Date.now(), elements })); }catch(e){ /* storage full or unavailable — skip caching */ }
+  }
+
   async function findNearby(osmFilter, label){
     if(!lastPos){
       setAiStatus('Pehle "Start Ride" dabakar location on karein.');
@@ -737,16 +846,24 @@
       return;
     }
     setAiStatus((hindi ? 'Najdeek ' + label + ' dhoond raha hoon...' : 'Searching nearby ' + label + '...'));
+
+    const cacheKey = nearbyCacheKey(osmFilter, lastPos.lat, lastPos.lon);
+    let elements = getNearbyCache(cacheKey);
+
     try{
-      const radius = 8000;
-      const q = `[out:json][timeout:15];(${osmFilter}(around:${radius},${lastPos.lat},${lastPos.lon}););out body 15;`;
-      const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q);
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 12000);
-      const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeoutId);
-      const data = await res.json();
-      const elements = (data.elements || []).filter(e => e.lat && e.lon);
+      if(!elements){
+        const radius = 8000;
+        const q = `[out:json][timeout:15];(${osmFilter}(around:${radius},${lastPos.lat},${lastPos.lon}););out body 15;`;
+        const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        const data = await res.json();
+        elements = (data.elements || []).filter(e => e.lat && e.lon);
+        setNearbyCache(cacheKey, elements);
+      }
+
       if(elements.length === 0){
         const msg = hindi ? `Aas paas 8 km mein koi ${label} nahi mila.` : `No ${label} found within 8 km.`;
         setAiStatus(msg);
@@ -775,12 +892,101 @@
     }
   }
 
+  async function checkRoadType(lat, lon){
+    const now = Date.now();
+    if(now - lastManualLimitChange < 300000) return; // respect a recent manual choice for 5 min
+    if(now - lastRoadTypeCheck < 120000) return; // check at most every 2 min
+    if(lastRoadTypeCheckPos){
+      const moved = haversineKm(lastRoadTypeCheckPos.lat, lastRoadTypeCheckPos.lon, lat, lon);
+      if(moved < 0.3) return; // and only after moving ~300m
+    }
+    lastRoadTypeCheck = now;
+    lastRoadTypeCheckPos = { lat, lon };
+    try{
+      const q = `[out:json][timeout:10];way(around:40,${lat},${lon})["highway"];out tags 5;`;
+      const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      const data = await res.json();
+      const ways = data.elements || [];
+      if(!ways.length) return;
+      const types = ways.map(w => w.tags && w.tags.highway).filter(Boolean);
+      let newLimit = null;
+      if(types.some(t => ['motorway','trunk'].includes(t))) newLimit = 80;
+      else if(types.some(t => ['primary','secondary'].includes(t))) newLimit = 60;
+      else if(types.some(t => ['residential','living_street','service','tertiary'].includes(t))) newLimit = 40;
+      if(newLimit && newLimit !== speedLimit){
+        speedLimit = newLimit;
+        limitValueEl.textContent = speedLimit;
+        limitAutoTag.style.display = 'inline';
+      }
+    }catch(e){ /* road-type detection is a convenience extra */ }
+  }
+
   function detectNearbyIntent(text){
     const t = text.toLowerCase();
     if(/petrol|fuel|pump|diesel|पेट्रोल|पंप|डीज़ल|डीजल/.test(t)) return { filter: 'node["amenity"="fuel"]', label: hindi ? 'petrol pump' : 'petrol pump' };
     if(/hotel|room|stay|rukne|होटल|कमरा|रुकने/.test(t)) return { filter: 'node["tourism"="hotel"]', label: hindi ? 'hotel' : 'hotel' };
     if(/khana|restaurant|dhaba|food|bhojan|bhookh|hungry|खाना|रेस्टोरेंट|ढाबा|भूख/.test(t)) return { filter: 'node["amenity"="restaurant"]', label: hindi ? 'restaurant' : 'restaurant' };
     if(/\batm\b|paisa nikal|cash|एटीएम|पैसा निकाल|कैश/.test(t)) return { filter: 'node["amenity"="atm"]', label: 'ATM' };
+    return null;
+  }
+
+  function localSmartReply(text){
+    const t = text.toLowerCase();
+
+    const patterns = [
+      { test: /namaste|hello|hi\b|hey\b|नमस्ते|हैलो/, replies: hindi ? [
+        'Namaste! Kaise ho aap?',
+        'Hey! Ride kaisi chal rahi hai?',
+        'Namaste! Sab badhiya?'
+      ] : ['Hey! How are you doing?', 'Hi there! Ride going well?'] },
+
+      { test: /kaise ho|kya haal|how are you|कैसे हो|क्या हाल/, replies: hindi ? [
+        'Main bilkul badhiya hoon, aapke saath ride kar raha hoon! Aap batao?',
+        'Main theek hoon, aapki company mein aur maza aa raha hai!'
+      ] : ["I'm doing great, riding along with you! How about you?"] },
+
+      { test: /bore|boring|kuch sunao|maza nahi|बोर|बोरिंग/, replies: hindi ? [
+        'Thoda gaana laga lein ya khidki se bahar dekhein, jald hi maza aa jaayega!',
+        'Chaliye ek chhoti si baat karte hain — aaj ka din kaisa raha?',
+        'Ride ka nazara enjoy karein, main yahin hoon aapke saath.'
+      ] : ["Put on some music or enjoy the view — I'm right here with you!"] },
+
+      { test: /thak gaya|thaka|neend|sleepy|tired|थक गया|नींद/, replies: hindi ? [
+        'Thoda ruk kar rest le lein, safety sabse zaroori hai.',
+        'Agar neend aa rahi hai toh kahin ruk kar chai pi lein, phir aage chalte hain.'
+      ] : ['Please stop and rest for a bit — safety comes first.'] },
+
+      { test: /udaas|sad\b|mood kharab|dukhi|उदास|दुखी/, replies: hindi ? [
+        'Sab theek ho jaayega, thoda deep breath lein. Main yahin hoon.',
+        'Kabhi kabhi mood aisa hota hai, ride ka maza lein, achha lagega.'
+      ] : ["It'll be okay, take a deep breath. I'm here with you."] },
+
+      { test: /motivate|himmat|josh|प्रेरणा|जोश/, replies: hindi ? [
+        'Aap kar sakte ho! Har ride ek nayi kahani hai, chalte rahiye!',
+        'Josh high rakhiye, manzil paas hi hai!'
+      ] : ['You can do this! Keep going, the destination is close!'] },
+
+      { test: /thanks|shukriya|dhanyavad|धन्यवाद|शुक्रिया/, replies: hindi ? [
+        'Koi baat nahi, main hamesha yahin hoon!',
+        'Aapka swagat hai, safe ride!'
+      ] : ["You're welcome, ride safe!"] },
+
+      { test: /acche ho|pasand aaya|good job|nice one|अच्छे हो/, replies: hindi ? [
+        'Shukriya! Aapke saath ride karna mujhe bhi accha lagta hai.'
+      ] : ['Thank you! I enjoy riding along with you too.'] },
+
+      { test: /joke|hasao|mazak|जोक|मजाक/, replies: hindi ? [
+        'Ek scooter ne bike se poocha — tu itni fast kaise hai? Bike boli — main bhi teri jaisi thi, jab tak petrol tha!'
+      ] : ['Why did the scooter feel slow? It ran out of petrol jokes!'] }
+    ];
+
+    for(const p of patterns){
+      if(p.test.test(t)) return p.replies[Math.floor(Math.random() * p.replies.length)];
+    }
     return null;
   }
 
@@ -889,8 +1095,60 @@
   }
 
   function speak(text){
-    if(!voiceOn || !('speechSynthesis' in window)) return;
-    if(window.speechSynthesis.speaking) return;
+    if(!voiceOn) return;
+    if(ttsBusy) return; // avoid overlapping speech from either engine
+    if(elevenLabsApiKey){
+      ttsBusy = true;
+      ttsBusySince = Date.now();
+      speakElevenLabs(text).then(success => {
+        if(!success){
+          ttsBusy = false;
+          speakBrowser(text);
+        }
+      });
+    } else {
+      speakBrowser(text);
+    }
+  }
+
+  async function speakElevenLabs(text){
+    try{
+      const voiceId = elevenLabsVoiceId || 'ecp3DWciuUyW7BYM7II1';
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'xi-api-key': elevenLabsApiKey,
+          'Content-Type': 'application/json',
+          'Accept': 'audio/mpeg'
+        },
+        body: JSON.stringify({
+          text: text,
+          model_id: 'eleven_multilingual_v2',
+          voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+        })
+      });
+      clearTimeout(timeoutId);
+      if(!res.ok){ ttsBusy = false; return false; }
+      const blob = await res.blob();
+      const audioUrl = URL.createObjectURL(blob);
+      const audio = new Audio(audioUrl);
+      audio.onended = () => { ttsBusy = false; URL.revokeObjectURL(audioUrl); };
+      audio.onerror = () => { ttsBusy = false; URL.revokeObjectURL(audioUrl); };
+      await audio.play();
+      return true;
+    }catch(e){
+      ttsBusy = false;
+      return false;
+    }
+  }
+
+  function speakBrowser(text){
+    if(!('speechSynthesis' in window)){ ttsBusy = false; return; }
+    // Speech queue cleansing: clear any stuck/leftover utterances before speaking (Android Chrome buffer bug)
+    try{ window.speechSynthesis.cancel(); }catch(e){}
     const u = new SpeechSynthesisUtterance(text);
     u.lang = hindi ? 'hi-IN' : 'en-IN';
     u.rate = 1;
@@ -905,6 +1163,10 @@
       u.voice = voiceObj;
       u.lang = voiceObj.lang;
     }
+    ttsBusy = true;
+    ttsBusySince = Date.now();
+    u.onend = () => { ttsBusy = false; };
+    u.onerror = () => { ttsBusy = false; };
     window.speechSynthesis.speak(u);
   }
 
@@ -1027,33 +1289,55 @@
     const deg = headingDeg || 0;
     return L.divIcon({
       className: 'bike-icon',
-      html: `<div style="font-size:26px; transform:rotate(${deg}deg); transform-origin:center; filter:drop-shadow(0 0 3px rgba(0,0,0,0.6));">🏍️</div>`,
+      html: `<div style="font-size:26px; transform:rotate(${deg}deg) translateZ(0); transform-origin:center; will-change:transform; filter:drop-shadow(0 0 3px rgba(0,0,0,0.6));">🏍️</div>`,
       iconSize: [26, 26],
       iconAnchor: [13, 13]
     });
   }
 
+  let lastMapRenderPos = null;
+
   function updateMap(lat, lon, headingDeg){
     try{
       if(!map){
-        map = L.map('liveMap', { zoomControl: false, attributionControl: true }).setView([lat, lon], 16);
+        map = L.map('liveMap', { zoomControl: false, attributionControl: true, preferCanvas: true }).setView([lat, lon], 16);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 19,
           attribution: '© OpenStreetMap'
         }).addTo(map);
         marker = L.marker([lat, lon], { icon: bikeIcon(headingDeg) }).addTo(map);
-      } else {
-        marker.setLatLng([lat, lon]);
-        marker.setIcon(bikeIcon(headingDeg));
+        lastMapRenderPos = { lat, lon };
+        return;
+      }
+
+      // Distance-threshold filter: skip re-render for GPS jitter under ~3m (saves CPU/battery)
+      if(lastMapRenderPos){
+        const movedKm = haversineKm(lastMapRenderPos.lat, lastMapRenderPos.lon, lat, lon);
+        if(movedKm < 0.003) return;
+      }
+      lastMapRenderPos = { lat, lon };
+
+      marker.setLatLng([lat, lon]);
+      marker.setIcon(bikeIcon(headingDeg));
+
+      // Speed-based throttling: skip camera re-centering while genuinely stationary
+      if(lastSpeedKmh > 0){
         map.setView([lat, lon], map.getZoom(), { animate: false });
       }
     }catch(e){ /* map is a visual extra — ride tracking continues without it */ }
   }
 
+  let lastGeocodePos = null;
+
   async function updatePlaceName(lat, lon){
     const now = Date.now();
-    if(now - lastGeocodeTime < 45000) return; // respect Nominatim's fair-use rate limit
+    if(now - lastGeocodeTime < 20000) return; // hard floor: never call more than once per 20s regardless of movement
+    if(lastGeocodePos){
+      const movedKm = haversineKm(lastGeocodePos.lat, lastGeocodePos.lon, lat, lon);
+      if(movedKm < 0.2) return; // only re-check once the rider has moved ~200m
+    }
     lastGeocodeTime = now;
+    lastGeocodePos = { lat, lon };
     try{
       const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=16&addressdetails=1`;
       const res = await fetch(url, { headers: { 'Accept-Language': hindi ? 'hi' : 'en' } });
@@ -1204,17 +1488,14 @@
     }
   }
 
-  async function askAI(userText, context){
-    // Inside Claude's own artifact preview, this call is proxied automatically (no key needed).
-    // Outside it (e.g. hosted on GitHub Pages), a personal Anthropic API key is required.
-    const insideClaudePreview = !!window.storage;
-    if(!insideClaudePreview && !anthropicApiKey){
-      return null; // no way to reach the API here — caller falls back to a canned message
-    }
+  function companionSystemPrompt(context){
+    return `Tum "${assistantName}" ho, ek dost jaisa AI riding companion jo ${userName ? userName : 'rider'} ke saath bike/scooter ride ke dauraan baat karta hai. Hamesha casual Hinglish mein (Hindi+English mix, Roman script), warm aur caring tone mein, sirf 1-2 chhoti lines mein jawab do — jaise ek achha dost bolta hai, lecture nahi. Agar zaroori ho toh halka safety reminder de sakte ho par natural andaaz mein. Current context: ${context}`;
+  }
+
+  async function askAnthropic(userText, context, insideClaudePreview){
     try{
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 9000);
-      const sys = `Tum "${assistantName}" ho, ek dost jaisa AI riding companion jo ${userName ? userName : 'rider'} ke saath bike/scooter ride ke dauraan baat karta hai. Hamesha casual Hinglish mein (Hindi+English mix, Roman script), warm aur caring tone mein, sirf 1-2 chhoti lines mein jawab do — jaise ek achha dost bolta hai, lecture nahi. Agar zaroori ho toh halka safety reminder de sakte ho par natural andaaz mein. Current context: ${context}`;
       const headers = { "Content-Type": "application/json" };
       if(!insideClaudePreview && anthropicApiKey){
         headers["x-api-key"] = anthropicApiKey;
@@ -1228,7 +1509,7 @@
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
           max_tokens: 200,
-          system: sys,
+          system: companionSystemPrompt(context),
           messages: [{ role: "user", content: userText }]
         })
       });
@@ -1240,6 +1521,46 @@
     }catch(e){
       return null;
     }
+  }
+
+  async function askGemini(userText, context){
+    try{
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 9000);
+      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": geminiApiKey },
+        signal: controller.signal,
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: userText }] }],
+          systemInstruction: { parts: [{ text: companionSystemPrompt(context) }] },
+          generationConfig: { maxOutputTokens: 200 }
+        })
+      });
+      clearTimeout(timeoutId);
+      if(!response.ok) return null;
+      const data = await response.json();
+      const cand = data.candidates && data.candidates[0];
+      const text = cand && cand.content && cand.content.parts && cand.content.parts[0] ? cand.content.parts[0].text : null;
+      return text ? text.trim() : null;
+    }catch(e){
+      return null;
+    }
+  }
+
+  async function askAI(userText, context){
+    // Inside Claude's own artifact preview, this call is proxied automatically (no key needed).
+    // Outside it (e.g. hosted on GitHub Pages), a personal Anthropic or Gemini key is required.
+    const insideClaudePreview = !!window.storage;
+    if(insideClaudePreview || anthropicApiKey){
+      const r = await askAnthropic(userText, context, insideClaudePreview);
+      if(r) return r;
+    }
+    if(geminiApiKey){
+      const r = await askGemini(userText, context);
+      if(r) return r;
+    }
+    return null;
   }
 
   async function greetOnStart(){
@@ -1296,6 +1617,57 @@
   }
 
   // ---------- Trip history (persistent storage) ----------
+  async function saveTripState(){
+    if(!tracking) return;
+    try{
+      const state = {
+        tripDistanceKm, tripStartTime, lastPos,
+        destinationName: destination ? destination.name : null,
+        destinationLat: destination ? destination.lat : null,
+        destinationLon: destination ? destination.lon : null,
+        savedAt: Date.now()
+      };
+      await storageAdapter.set('tripstate:current', JSON.stringify(state));
+    }catch(e){}
+  }
+
+  async function clearTripState(){
+    try{ await storageAdapter.delete('tripstate:current'); }catch(e){}
+  }
+
+  async function checkResumableTrip(){
+    try{
+      const r = await storageAdapter.get('tripstate:current');
+      if(!r || !r.value) return;
+      const state = JSON.parse(r.value);
+      if(!state.savedAt || Date.now() - state.savedAt > 3 * 3600 * 1000){
+        await clearTripState(); // stale (older than 3 hours) — don't offer resume
+        return;
+      }
+      const resume = confirm(hindi
+        ? `Pichli trip mili (${state.tripDistanceKm.toFixed(1)} km). Kya use continue karna chahte hain?`
+        : `Found a previous trip (${state.tripDistanceKm.toFixed(1)} km). Resume it?`);
+      if(resume){
+        tripDistanceKm = state.tripDistanceKm || 0;
+        tripStartTime = state.tripStartTime || Date.now();
+        lastPos = state.lastPos || null;
+        tripDistanceEl.textContent = tripDistanceKm.toFixed(1);
+        if(state.destinationName && state.destinationLat){
+          destination = {
+            name: state.destinationName, lat: state.destinationLat, lon: state.destinationLon,
+            steps: null, currentStepIndex: 0, announcedFar: false, announcedNear: false
+          };
+          destStatusEl.textContent = hindi
+            ? `🎯 ${destination.name} (resume ho gaya) — "Start Ride" dabayein route dobara load karne ke liye.`
+            : `🎯 ${destination.name} (resumed) — press Start Ride to reload the route.`;
+        }
+        setAlert(hindi ? 'Pichli trip resume ho gayi. "Start Ride" dabayein.' : 'Previous trip resumed. Press Start Ride.', 'ok');
+      } else {
+        await clearTripState();
+      }
+    }catch(e){}
+  }
+
   async function saveTripRecord(record){
     try{
       await storageAdapter.set('trip:' + record.timestamp, JSON.stringify(record));
@@ -1399,28 +1771,33 @@
     updatePlaceName(latitude, longitude);
     fetchWeather(latitude, longitude);
     checkWatches(latitude, longitude);
+    checkRoadType(latitude, longitude);
 
     if(destination){
       if(destination.steps && destination.steps.length > 1){
         updateTurnByTurn(latitude, longitude);
       } else {
         const nowD = Date.now();
-        if(nowD - lastRouteFetch > 60000){
+        if(nowD - lastRouteFetch > 45000){
           lastRouteFetch = nowD;
-          getRoute(latitude, longitude, destination.lat, destination.lon).then(route => {
-            let remKm, viaRoute = true;
-            if(route){ remKm = route.distanceKm; }
-            else { remKm = haversineKm(latitude, longitude, destination.lat, destination.lon); viaRoute = false; }
+          getRouteWithSteps(latitude, longitude, destination.lat, destination.lon).then(route => {
+            if(!destination) return; // cleared/arrived while this request was in flight
+            if(route && route.steps && route.steps.length > 1){
+              applyRouteWithSteps(route, destination);
+              retryRouteBtn.style.display = 'none';
+              speak(hindi ? 'Turn-by-turn navigation ab mil gaya.' : 'Turn-by-turn navigation is now available.');
+              return;
+            }
+            const remKm = haversineKm(latitude, longitude, destination.lat, destination.lon);
             if(remKm < 0.2){
               destStatusEl.textContent = hindi ? `🎉 Aap "${destination.name}" ke paas pahunch gaye hain!` : `🎉 You've arrived near "${destination.name}"!`;
               speak(hindi ? 'Aap apni manzil ke paas pahunch gaye hain!' : "You've arrived near your destination!");
               if(destMarker && map){ map.removeLayer(destMarker); destMarker = null; }
               destination = null;
             } else {
-              const suffix = viaRoute ? '' : (hindi ? ' (seedhi-line)' : ' (straight-line)');
               destStatusEl.textContent = hindi
-                ? `🎯 ${destination.name} — baaki: ${remKm.toFixed(1)} km${suffix}`
-                : `🎯 ${destination.name} — remaining: ${remKm.toFixed(1)} km${suffix}`;
+                ? `🎯 ${destination.name} — baaki: ${remKm.toFixed(1)} km (⚠️ sirf distance, turn-by-turn koshish jaari hai)`
+                : `🎯 ${destination.name} — remaining: ${remKm.toFixed(1)} km (⚠️ distance only, still retrying turn-by-turn)`;
             }
           });
         }
@@ -1499,6 +1876,78 @@
     }catch(e){ /* wake lock not critical, fail silently */ }
   }
 
+  // ---------- Crash / fall detection (best-effort heuristic, not a certified safety device) ----------
+  let crashListenerAttached = false;
+  let lastCrashTrigger = 0;
+  let crashCountdownInterval = null;
+
+  function handleMotion(e){
+    if(!tracking) return; // only watch for impacts while actively riding
+    const acc = e.accelerationIncludingGravity || e.acceleration;
+    if(!acc) return;
+    const magnitude = Math.sqrt((acc.x || 0) ** 2 + (acc.y || 0) ** 2 + (acc.z || 0) ** 2);
+    const now = Date.now();
+    if(magnitude > 35 && now - lastCrashTrigger > 30000){
+      lastCrashTrigger = now;
+      triggerCrashAlert();
+    }
+  }
+
+  async function enableCrashDetection(){
+    if(crashListenerAttached) return;
+    try{
+      if(typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function'){
+        const perm = await DeviceMotionEvent.requestPermission(); // iOS — must follow a user gesture (Start Ride tap)
+        if(perm !== 'granted') return;
+      }
+      window.addEventListener('devicemotion', handleMotion);
+      crashListenerAttached = true;
+    }catch(e){ /* crash detection is a safety extra — ride tracking continues without it */ }
+  }
+
+  function triggerCrashAlert(){
+    let count = 10;
+    crashCount.textContent = count;
+    crashOverlay.classList.add('show');
+    speak(hindi ? 'Achanak zoradaar jhatka mehsoos hua. Agar aap theek hain toh cancel dabayein.' : 'A sudden impact was detected. Tap cancel if you are okay.');
+
+    clearInterval(crashCountdownInterval);
+    crashCountdownInterval = setInterval(() => {
+      count -= 1;
+      crashCount.textContent = count;
+      if(count <= 0){
+        clearInterval(crashCountdownInterval);
+        crashOverlay.classList.remove('show');
+        sendCrashSOS();
+      }
+    }, 1000);
+  }
+
+  crashCancelBtn.addEventListener('click', () => {
+    clearInterval(crashCountdownInterval);
+    crashOverlay.classList.remove('show');
+  });
+
+  function sendCrashSOS(){
+    const num = sosContactInput.value.trim();
+    const locText = lastPos ? `https://www.google.com/maps?q=${lastPos.lat},${lastPos.lon}` : (hindi ? 'location uplabdh nahi' : 'location unavailable');
+    const msg = hindi
+      ? `Emergency! Mujhe ride ke dauraan achanak zoradaar jhatka laga hai, shayad accident ho gaya hai. Meri live location: ${locText}`
+      : `Emergency! I may have had a crash while riding. My live location: ${locText}`;
+    if(!num){
+      setAlert(hindi ? 'Emergency number save nahi kiya gaya tha, SOS bheja nahi ja saka.' : 'No emergency number was saved, could not send SOS.', 'warn');
+      return;
+    }
+    // Browsers cannot silently send messages for security reasons — this opens WhatsApp/SMS
+    // pre-filled with the alert; a final tap on Send is still needed by whoever has the phone.
+    const waUrl = `https://wa.me/${num.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`;
+    window.open(waUrl, '_blank');
+    setTimeout(() => {
+      window.location.href = 'sms:' + num + '?body=' + encodeURIComponent(msg);
+    }, 2000);
+    setAlert(hindi ? 'Emergency message taiyaar kar diya — bhejne ke liye tap karein.' : 'Emergency message prepared — tap to send.', 'warn');
+  }
+
   function startTracking(){
     if(!('geolocation' in navigator)){
       setAlert('Is browser mein location support nahi hai.', 'warn');
@@ -1514,6 +1963,7 @@
       setAlert('Tracking shuru — ride safe rahe!', 'ok');
       greetOnStart();
       requestWakeLock();
+      enableCrashDetection();
 
       watchId = navigator.geolocation.watchPosition(handlePosition, handleError, {
         enableHighAccuracy: true,
@@ -1539,6 +1989,7 @@
     if(watchId !== null) navigator.geolocation.clearWatch(watchId);
     if(timerInterval) clearInterval(timerInterval);
     if(wakeLock){ wakeLock.release().catch(()=>{}); wakeLock = null; }
+    clearTripState();
     if(!keepAlert){
       setAlert('Ride ruk gayi hai. Trip data safe hai — "Start Ride" se dubara shuru karein.');
     }
@@ -1576,10 +2027,14 @@
   limitDownBtn.addEventListener('click', () => {
     speedLimit = Math.max(10, speedLimit - 5);
     limitValueEl.textContent = speedLimit;
+    lastManualLimitChange = Date.now();
+    limitAutoTag.style.display = 'none';
   });
   limitUpBtn.addEventListener('click', () => {
     speedLimit = Math.min(160, speedLimit + 5);
     limitValueEl.textContent = speedLimit;
+    lastManualLimitChange = Date.now();
+    limitAutoTag.style.display = 'none';
   });
 
   voiceToggleBtn.addEventListener('click', () => {
@@ -1735,6 +2190,7 @@
     tripTimeEl.textContent = '00:00:00';
     mileageResultEl.textContent = '';
     fuelInput.value = '';
+    clearTripState();
     setAlert('Trip reset ho gaya.');
   });
 
@@ -1752,6 +2208,18 @@
       const r4 = await storageAdapter.get('anthropic:apikey');
       if(r4 && r4.value){ anthropicApiKey = r4.value; apiKeyInput.value = r4.value; }
     }catch(e){ /* not saved yet */ }
+    try{
+      const r5 = await storageAdapter.get('gemini:apikey');
+      if(r5 && r5.value){ geminiApiKey = r5.value; geminiKeyInput.value = r5.value; }
+    }catch(e){ /* not saved yet */ }
+    try{
+      const r6 = await storageAdapter.get('elevenlabs:apikey');
+      if(r6 && r6.value){ elevenLabsApiKey = r6.value; elevenLabsKeyInput.value = r6.value; }
+    }catch(e){ /* not saved yet */ }
+    try{
+      const r7 = await storageAdapter.get('elevenlabs:voiceid');
+      if(r7 && r7.value){ elevenLabsVoiceId = r7.value; elevenLabsVoiceInput.value = r7.value; }
+    }catch(e){ /* not saved yet — default Anika ID stays */ }
     try{
       const r3 = await storageAdapter.get('voice:selected');
       if(r3 && r3.value){ selectedVoiceURI = r3.value; populateVoiceSelect(); }
@@ -1796,6 +2264,26 @@
     try{ await storageAdapter.set('anthropic:apikey', val); }catch(e){}
   });
 
+  geminiKeyInput.addEventListener('blur', async () => {
+    const val = geminiKeyInput.value.trim();
+    geminiApiKey = val;
+    try{ await storageAdapter.set('gemini:apikey', val); }catch(e){}
+  });
+
+  elevenLabsKeyInput.addEventListener('blur', async () => {
+    const val = elevenLabsKeyInput.value.trim();
+    elevenLabsApiKey = val;
+    try{ await storageAdapter.set('elevenlabs:apikey', val); }catch(e){}
+  });
+
+  elevenLabsVoiceInput.addEventListener('blur', async () => {
+    const val = elevenLabsVoiceInput.value.trim();
+    if(val){
+      elevenLabsVoiceId = val;
+      try{ await storageAdapter.set('elevenlabs:voiceid', val); }catch(e){}
+    }
+  });
+
   aiToggleBtn.addEventListener('click', () => {
     aiFriendOn = !aiFriendOn;
     aiToggleBtn.textContent = aiFriendOn ? 'ON' : 'OFF';
@@ -1806,6 +2294,25 @@
   document.getElementById('nearHotel').addEventListener('click', () => { startWatch('node["tourism"="hotel"]', 'hotel'); findNearby('node["tourism"="hotel"]', 'hotel'); });
   document.getElementById('nearFood').addEventListener('click', () => { startWatch('node["amenity"="restaurant"]', 'restaurant'); findNearby('node["amenity"="restaurant"]', 'restaurant'); });
   document.getElementById('nearAtm').addEventListener('click', () => { startWatch('node["amenity"="atm"]', 'ATM'); findNearby('node["amenity"="atm"]', 'ATM'); });
+
+  function applyRouteWithSteps(route, place){
+    destination.steps = route.steps;
+    destStatusEl.textContent = `🎯 ${place.name} — ${route.distanceKm.toFixed(1)} km (~${Math.round(route.durationMin)} min)`;
+    navPanelEl.style.display = 'flex';
+    const next = route.steps[1];
+    const info = maneuverInfo(next);
+    navIconEl.textContent = info.icon;
+    navInstructionEl.textContent = hindi ? info.hi : info.en;
+    navDistanceEl.textContent = '--';
+
+    if(map && route.coords && route.coords.length > 1){
+      try{
+        if(routeLine) map.removeLayer(routeLine);
+        routeLine = L.polyline(route.coords, { color: '#3B82F6', weight: 5, opacity: 0.85 }).addTo(map);
+        map.fitBounds(routeLine.getBounds(), { padding: [24, 24] });
+      }catch(e){ /* route line is a visual extra */ }
+    }
+  }
 
   setDestBtn.addEventListener('click', async () => {
     const query = destInput.value.trim();
@@ -1830,25 +2337,14 @@
     if(lastPos){
       const route = await getRouteWithSteps(lastPos.lat, lastPos.lon, place.lat, place.lon);
       if(route && route.steps && route.steps.length > 1){
-        destination.steps = route.steps;
-        destStatusEl.textContent = `🎯 ${place.name} — ${route.distanceKm.toFixed(1)} km (~${Math.round(route.durationMin)} min)`;
-        navPanelEl.style.display = 'flex';
-        const next = route.steps[1];
-        const info = maneuverInfo(next);
-        navIconEl.textContent = info.icon;
-        navInstructionEl.textContent = hindi ? info.hi : info.en;
-        navDistanceEl.textContent = '--';
-
-        if(map && route.coords && route.coords.length > 1){
-          try{
-            if(routeLine) map.removeLayer(routeLine);
-            routeLine = L.polyline(route.coords, { color: '#3B82F6', weight: 5, opacity: 0.85 }).addTo(map);
-            map.fitBounds(routeLine.getBounds(), { padding: [24, 24] });
-          }catch(e){ /* route line is a visual extra */ }
-        }
+        applyRouteWithSteps(route, place);
+        retryRouteBtn.style.display = 'none';
       } else {
         const straight = haversineKm(lastPos.lat, lastPos.lon, place.lat, place.lon);
-        destStatusEl.textContent = `🎯 ${place.name} — ${straight.toFixed(1)} km (${hindi ? 'seedhi-line' : 'straight-line'})`;
+        destStatusEl.textContent = hindi
+          ? `🎯 ${place.name} — ${straight.toFixed(1)} km (⚠️ sirf distance, turn-by-turn abhi nahi mila — koshish jaari hai)`
+          : `🎯 ${place.name} — ${straight.toFixed(1)} km (⚠️ distance only, turn-by-turn unavailable — retrying)`;
+        retryRouteBtn.style.display = 'block';
       }
     } else {
       destStatusEl.textContent = hindi
@@ -1864,6 +2360,23 @@
     destInput.value = '';
     destStatusEl.textContent = '';
     navPanelEl.style.display = 'none';
+    retryRouteBtn.style.display = 'none';
+  });
+
+  retryRouteBtn.addEventListener('click', async () => {
+    if(!destination || !lastPos) return;
+    destStatusEl.textContent = hindi ? 'Turn-by-turn dobara try kar raha hoon...' : 'Retrying turn-by-turn...';
+    lastRouteFetch = Date.now(); // avoid the automatic retry firing again right away too
+    const route = await getRouteWithSteps(lastPos.lat, lastPos.lon, destination.lat, destination.lon);
+    if(route && route.steps && route.steps.length > 1){
+      applyRouteWithSteps(route, destination);
+      retryRouteBtn.style.display = 'none';
+    } else {
+      const straight = haversineKm(lastPos.lat, lastPos.lon, destination.lat, destination.lon);
+      destStatusEl.textContent = hindi
+        ? `🎯 ${destination.name} — ${straight.toFixed(1)} km (⚠️ abhi bhi turn-by-turn nahi mila, thodi der baad phir try karein)`
+        : `🎯 ${destination.name} — ${straight.toFixed(1)} km (⚠️ still unavailable, try again shortly)`;
+    }
   });
 
   // ---------- Push-to-talk voice chat ----------
@@ -1918,8 +2431,19 @@
       if(reply){
         setAiStatus(reply);
         speak(reply);
+        return;
+      }
+
+      const localReply = localSmartReply(transcript);
+      if(localReply){
+        setAiStatus(localReply);
+        speak(localReply);
       } else {
-        setAiStatus('Abhi jawab nahi mil paya — internet connection check karein.');
+        const fallback = hindi
+          ? 'Samajh nahi paya, phir se boliye — ya "petrol", "hotel" jaisi cheezein pucho.'
+          : "I didn't quite catch that — try again, or ask about petrol/hotel/etc.";
+        setAiStatus(fallback);
+        speak(fallback);
       }
     };
     recognition.onerror = (e) => {
@@ -1966,6 +2490,47 @@
       talkBtn.textContent = '🎤 Baat karein';
     }
   });
+
+  // ---------- State auto-recovery ----------
+  setInterval(saveTripState, 30000);
+  checkResumableTrip();
+
+  // ---------- Auto day/night theme ----------
+  function applyTheme(){
+    let useLight;
+    if(themeMode === 'light') useLight = true;
+    else if(themeMode === 'dark') useLight = false;
+    else {
+      const hour = new Date().getHours();
+      useLight = hour >= 6 && hour < 18;
+    }
+    document.body.setAttribute('data-theme', useLight ? 'light' : 'dark');
+    const labels = { auto: (useLight ? '☀️ Auto' : '🌙 Auto'), light: '☀️ Light', dark: '🌙 Dark' };
+    themeToggle.textContent = labels[themeMode];
+  }
+
+  themeToggle.addEventListener('click', async () => {
+    themeMode = themeMode === 'auto' ? 'light' : (themeMode === 'light' ? 'dark' : 'auto');
+    applyTheme();
+    try{ await storageAdapter.set('theme:mode', themeMode); }catch(e){}
+  });
+
+  (async function loadTheme(){
+    try{
+      const r = await storageAdapter.get('theme:mode');
+      if(r && r.value) themeMode = r.value;
+    }catch(e){}
+    applyTheme();
+  })();
+
+  setInterval(applyTheme, 5 * 60000); // re-check every 5 min so auto mode transitions through the day
+
+  // ---------- PWA: service worker for offline app-shell + installable experience ----------
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is a bonus, not required */ });
+    });
+  }
 </script>
 </body>
 </html>
