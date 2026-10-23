@@ -3,10 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Ride Assistant Pro - Ultimate AI Edition</title>
-<link rel="manifest" href="manifest.json">
+<title>Ride Assistant Pro</title>
 <meta name="theme-color" content="#0E1218">
-<link rel="icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -36,7 +34,7 @@ body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; m
 .trip-strip{ display:flex; background:var(--panel); border:1px solid var(--line); border-radius:18px; margin-bottom:12px; overflow:hidden; }
 .trip-stat{ flex:1; padding:14px 8px; text-align:center; display:flex; flex-direction:column; gap:4px; }
 .trip-stat:not(:last-child){border-right:1px solid var(--line);}
-.trip-stat span{ font-family:'Space Grotesk',sans-serif; font-size:20px; font-weight:600; }
+.trip-stat span{ font-family:'Space Grotesk',sans-serif; font-size:18px; font-weight:600; color:var(--teal); }
 .trip-stat small{font-size:11px; color:var(--text-dim);}
 .alert-bar{ background:var(--panel-2); border:1px solid var(--line); border-radius:14px; padding:12px 14px; font-size:13.5px; color:var(--text-dim); line-height:1.4; margin-bottom:16px; min-height:20px; }
 .alert-bar.warn{color:var(--coral); border-color:rgba(255,90,90,0.4);}
@@ -52,8 +50,8 @@ body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; m
 .btn-talk{ background:var(--teal); color:#04211D; border:none; border-radius:12px; padding:14px; font-size:15px; font-weight:600; cursor:pointer; width:100%; }
 .btn-talk.listening{background:var(--coral); color:#2A0000;}
 .ai-status{ font-size:13px; color:var(--text-dim); line-height:1.4; min-height:16px; }
-.quick-row{ display:flex; gap:4px; flex-wrap:wrap; }
-.quick-btn{ flex:1; min-width:54px; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:7px 2px; font-size:10px; cursor:pointer; text-align:center; }
+.quick-row{ display:flex; gap:3px; flex-wrap:wrap; }
+.quick-btn{ flex:1 1 22%; min-width:65px; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:8px 4px; font-size:11px; cursor:pointer; text-align:center; }
 .quick-btn.jam{ border-color:var(--coral); color:var(--coral); font-weight:600; }
 .controls{ background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:16px; display:flex; flex-direction:column; gap:14px; margin-top:12px; }
 .btn-primary{ background:var(--amber); color:#1A1300; border:none; border-radius:12px; padding:14px; font-size:15px; font-weight:600; cursor:pointer; }
@@ -100,9 +98,9 @@ body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; m
   </div>
 
   <div class="trip-strip">
-    <div class="trip-stat"><span id="tripDistance">0.0</span><small>km</small></div>
-    <div class="trip-stat"><span id="avgSpeed">0</span><small>avg km/h</small></div>
-    <div class="trip-stat"><span id="tripTime">00:00:00</span><small>samay</small></div>
+    <div class="trip-stat"><span id="destDistVal">--</span><small>Manzil Doori</small></div>
+    <div class="trip-stat"><span id="destTimeVal">--</span><small>Pahunchne ka Samay</small></div>
+    <div class="trip-stat"><span id="tripDistance">0.0</span><small>Total km</small></div>
   </div>
 
   <div class="panel">
@@ -110,7 +108,6 @@ body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; m
       <div class="panel-title" style="margin-bottom:0;">📍 Live Map</div>
       <div style="display:flex; gap:5px;">
         <button id="recenterBtn" class="toggle-btn on" style="font-size:10px; padding:4px 6px;">🎯 My Loc</button>
-        <button id="rotateModeBtn" class="toggle-btn on" style="font-size:10px; padding:4px 6px;">🧭 Ghoomta Map</button>
       </div>
     </div>
     <div id="mapContainer" style="height:200px; border-radius:12px; overflow:hidden; background:var(--panel-2); position:relative; z-index:1;">
@@ -135,17 +132,18 @@ body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; m
   <div class="alert-bar" id="alertBar">Shuru karne ke liye neeche "Start Ride" dabayein.</div>
 
   <div class="panel">
-    <div class="panel-title">🤖 Advanced AI Saathi (Smart Chat Engine)</div>
+    <div class="panel-title">🤖 Ultimate AI Saathi</div>
     <div class="sos-input-row" style="margin-bottom:8px;">
-      <input type="text" id="aiChatInput" placeholder="Kuch bhi puchein (jaise: kitni door manzil, petrol, jam)..." autocomplete="off">
+      <input type="text" id="aiChatInput" placeholder="Puchein (jaise: petrol, atm, highway)..." autocomplete="off">
       <button id="aiChatSendBtn" class="sos-btn share" style="flex:0 0 70px;">Poochein</button>
     </div>
     <button id="talkBtn" class="btn-talk">🎤 Ya Bolkar Baat karein</button>
-    
+
     <div class="quick-row" style="margin-top:8px;">
       <button class="quick-btn jam" id="btnTrafficJam">🚨 Jam</button>
       <button class="quick-btn" id="nearFuel">⛽ Petrol</button>
       <button class="quick-btn" id="nearHosp">🏥 Hosp</button>
+      <button class="quick-btn" id="nearHighway">🛣️ Highway</button>
       <button class="quick-btn" id="nearPump">🛠️ Pump</button>
       <button class="quick-btn" id="nearWater">💧 Water</button>
       <button class="quick-btn" id="nearKirana">🛒 Kirana</button>
@@ -195,16 +193,31 @@ const clearDestBtn = document.getElementById('clearDestBtn');
 const destStatusEl = document.getElementById('destStatus');
 const destSuggestionsEl = document.getElementById('destSuggestions');
 const placeNameTextEl = document.getElementById('placeNameText');
-const rotateModeBtn = document.getElementById('rotateModeBtn');
 const recenterBtn = document.getElementById('recenterBtn');
 const btnTrafficJam = document.getElementById('btnTrafficJam');
+const destDistValEl = document.getElementById('destDistVal');
+const destTimeValEl = document.getElementById('destTimeVal');
+const tripDistanceEl = document.getElementById('tripDistance');
 
 let tracking = false; let watchId = null; let speedLimit = 60;
 let hindi = true; let lastPos = null; let lastSpeedKmh = 0; let tripDistanceKm = 0;
 let lastOverspeedSpoken = 0; let lastTurnSpoken = 0; let lastHeading = null;
 let map = null; let marker = null; let destMarker = null; let routeLine = null;
-let destination = null; let mapRotationMode = true; let maplibreLayer = null;
+let destination = null; let maplibreLayer = null;
 let forceCenterOnNextUpdate = true; let isDarkMode = true;
+let lastPlaceUpdateTick = 0;
+let activeRouteData = null;
+let routeCoordsCache = [];
+let lastRerouteTime = 0;
+let routeRequestPending = false;
+let wakeLock = null;
+
+limitDownBtn.addEventListener('click', () => {
+  if(speedLimit > 10){ speedLimit -= 5; limitValueEl.textContent = speedLimit; }
+});
+limitUpBtn.addEventListener('click', () => {
+  if(speedLimit < 150){ speedLimit += 5; limitValueEl.textContent = speedLimit; }
+});
 
 function toRad(v){ return v * Math.PI / 180; }
 function haversineKm(lat1, lon1, lat2, lon2){
@@ -212,6 +225,24 @@ function haversineKm(lat1, lon1, lat2, lon2){
   const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
+
+// Point se route (segments) ki minimum doori, meters mein
+function distToRouteM(lat, lon, coords){
+  if(coords.length < 2) return Infinity;
+  const kx = 111320 * Math.cos(toRad(lat)), ky = 110540;
+  let min = Infinity;
+  for(let i = 0; i < coords.length - 1; i++){
+    const ax = (coords[i][1]-lon)*kx,   ay = (coords[i][0]-lat)*ky;
+    const bx = (coords[i+1][1]-lon)*kx, by = (coords[i+1][0]-lat)*ky;
+    const dx = bx-ax, dy = by-ay, len2 = dx*dx + dy*dy;
+    let t = len2 ? -(ax*dx + ay*dy)/len2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    const d = Math.hypot(ax + t*dx, ay + t*dy);
+    if(d < min) min = d;
+  }
+  return min;
+}
+
 function bearing(lat1, lon1, lat2, lon2){
   const y = Math.sin(toRad(lon2-lon1)) * Math.cos(toRad(lat2));
   const x = Math.cos(toRad(lat1))*Math.sin(toRad(lat2)) - Math.sin(toRad(lat1))*Math.cos(toRad(lat2))*Math.cos(toRad(lon2-lon1));
@@ -239,7 +270,7 @@ function fnSetTheme(dark){
   isDarkMode = dark;
   document.body.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
   themeToggle.textContent = isDarkMode ? '🌙 Night Mode' : '☀️ Day Mode';
-  
+
   if(map){
     const styleUrl = isDarkMode ? 'https://tiles.openfreemap.org/styles/liberty' : 'https://tiles.openfreemap.org/styles/bright';
     try {
@@ -252,27 +283,27 @@ function fnSetTheme(dark){
 
 function checkAutoTheme(){
   const hour = new Date().getHours();
-  const autoNight = hour < 6 || hour >= 18;
-  fnSetTheme(autoNight);
+  fnSetTheme(hour < 6 || hour >= 18);
 }
 checkAutoTheme();
 themeToggle.addEventListener('click', () => fnSetTheme(!isDarkMode));
 
 async function updatePlaceName(lat, lon){
+  const now = Date.now();
+  if(now - lastPlaceUpdateTick < 15000) return;
+  lastPlaceUpdateTick = now;
   try{
     const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`, { headers: { 'Accept-Language': 'hi' } });
     const data = await res.json();
     if(data && data.display_name){
-      const shortName = data.display_name.split(',').slice(0, 3).join(',');
-      placeNameTextEl.textContent = `📍 ${shortName}`;
+      placeNameTextEl.textContent = `📍 ${data.display_name.split(',').slice(0, 3).join(',')}`;
     }
   }catch(e){}
 }
 
 function maneuverInfo(step){
-  if(!step) return { icon: '🏁', text: 'Manzil aa gayi' };
-  if(step.type === 'arrive') return { icon: '🏁', text: 'Manzil aa gayi' };
-  
+  if(!step || step.type === 'arrive') return { icon: '🏁', text: 'Manzil aa gayi' };
+
   const type = step.type; const mod = step.modifier || ''; const name = step.name || '';
   if(type === 'off ramp' || type === 'exit'){
     const isLeft = mod.includes('left');
@@ -294,35 +325,58 @@ function maneuverInfo(step){
   return { icon, text: fullText };
 }
 
+// Route banata hai. alternative=true par doosra route na mile to null deta hai.
 async function drawRoute(fromLat, fromLon, toLat, toLon, alternative=false){
   try{
     const url = `https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}?overview=full&geometries=geojson&steps=true${alternative ? '&alternatives=true' : ''}`;
     const res = await fetch(url); const data = await res.json();
-    if(data.routes && data.routes.length > 0){
-      const route = data.routes[alternative && data.routes.length > 1 ? 1 : 0];
-      const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+    if(!data.routes || data.routes.length === 0) return null;
+    if(alternative && data.routes.length < 2) return null;
+
+    const route = data.routes[alternative ? 1 : 0];
+    const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+    routeCoordsCache = coords;
+
+    if(map){
       if(routeLine) map.removeLayer(routeLine);
       routeLine = L.polyline(coords, { color: '#2DD4BF', weight: 5, opacity: 0.8 }).addTo(map);
-      const steps = route.legs[0].steps.map(s => ({
-        type: s.maneuver.type, modifier: s.maneuver.modifier,
-        lat: s.maneuver.location[1], lon: s.maneuver.location[0], distance: s.distance, name: s.name
-      }));
-      return { distanceKm: route.distance / 1000, durationMin: route.duration / 60, steps, coords };
     }
+
+    const distKm = route.distance / 1000;
+    const durationMin = Math.round(route.duration / 60);
+    activeRouteData = { distKm, durationMin, initialDistKm: distKm };
+    destDistValEl.textContent = distKm >= 1 ? distKm.toFixed(1) + ' km' : Math.round(route.distance) + ' m';
+    destTimeValEl.textContent = durationMin >= 60 ? (durationMin/60).toFixed(1) + ' hrs' : durationMin + ' min';
+
+    const steps = route.legs[0].steps.map(s => ({
+      type: s.maneuver.type, modifier: s.maneuver.modifier,
+      lat: s.maneuver.location[1], lon: s.maneuver.location[0], distance: s.distance, name: s.name
+    }));
+    return { distanceKm: distKm, durationMin, steps, coords };
   }catch(e){}
   return null;
+}
+
+// Route banakar destination ke steps set karta hai (index reset ke saath)
+async function buildRouteForDestination(fromLat, fromLon, alternative=false){
+  if(!destination) return null;
+  const route = await drawRoute(fromLat, fromLon, destination.lat, destination.lon, alternative);
+  if(route && destination){
+    destination.steps = route.steps;
+    destination.currentStepIndex = 0;
+  }
+  return route;
 }
 
 async function handleTrafficJam(){
   speak('Rasta jam hai? Main doosra rasta dhoond raha hoon...');
   setAiStatus('Traffic jam detect kiya gaya. Doosra rasta dhoond rahe hain...');
   if(destination && lastPos){
-    const altRoute = await drawRoute(lastPos.lat, lastPos.lon, destination.lat, destination.lon, true);
-    if(altRoute){
-      destination.steps = altRoute.steps;
-      destination.currentStepIndex = 0;
+    const alt = await buildRouteForDestination(lastPos.lat, lastPos.lon, true);
+    if(alt){
+      lastRerouteTime = Date.now();
       speak('Yeh lo doosra rasta mil gaya!');
-      setAiStatus('Alternative route successfully set ho gaya!');
+      setAiStatus('Alternative route set ho gaya!');
       return;
     }
   }
@@ -362,77 +416,112 @@ function initMap(lat, lon){
   map.on('dragstart', () => { forceCenterOnNextUpdate = false; });
 }
 
-function updateMap(lat, lon, headingDeg){
+function updateMap(lat, lon){
   try{
     if(!map){ initMap(lat, lon); return; }
     marker.setLatLng([lat, lon]);
-    if(mapRotationMode && headingDeg !== null){ map.setBearing(-headingDeg); }
     if(forceCenterOnNextUpdate){
       map.setView([lat, lon], map.getZoom(), { animate: false });
     }
   }catch(e){}
 }
 
-async function findNearby(osmFilter, label){
-  if(!lastPos){ setAiStatus('Pehle "Start Ride" dabayein.'); speak('Pehle start ride dabayein.'); return; }
+async function findNearby(filterQuerySnippet, label, fallbackQueryText){
+  if(!lastPos){
+    if('geolocation' in navigator){
+      setAiStatus('Location dhoond raha hoon...');
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        lastPos = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        initMap(lastPos.lat, lastPos.lon);
+        await executeNearbySearch(filterQuerySnippet, label, fallbackQueryText);
+      }, () => {
+        setAiStatus('Location permission dein ya "Start Ride" dabayein.');
+        speak('Pehle start ride dabayein.');
+      }, { enableHighAccuracy: true });
+    } else {
+      setAiStatus('GPS support nahi hai.');
+    }
+    return;
+  }
+  await executeNearbySearch(filterQuerySnippet, label, fallbackQueryText);
+}
+
+async function executeNearbySearch(filterQuerySnippet, label, fallbackQueryText){
   setAiStatus(`Najdeek ${label} dhoond raha hoon...`);
-  
-  const q = `[out:json][timeout:15];(${osmFilter}(around:12000,${lastPos.lat},${lastPos.lon}););out body 15;`;
-  let data = null;
+
+  let mapped = [];
   try {
+    const q = `[out:json][timeout:15];(${filterQuerySnippet}(around:15000,${lastPos.lat},${lastPos.lon}););out center 20;`;
     const res = await fetch('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q));
-    if(res.ok) data = await res.json();
+    if(res.ok){
+      const data = await res.json();
+      if(data && data.elements){
+        mapped = data.elements.map(e => {
+          let lat = e.lat; let lon = e.lon;
+          if(lat == null && e.center){ lat = e.center.lat; lon = e.center.lon; }
+          if(lat == null && e.geometry && e.geometry.length > 0){ lat = e.geometry[0].lat; lon = e.geometry[0].lon; }
+          return {
+            name: e.tags?.name || e.tags?.brand || label,
+            lat: lat, lon: lon,
+            dist: (lat != null && lon != null) ? haversineKm(lastPos.lat, lastPos.lon, lat, lon) : 9999
+          };
+        }).filter(item => item.lat != null && item.lon != null && !isNaN(item.lat) && !isNaN(item.lon)).sort((a,b) => a.dist - b.dist);
+      }
+    }
   } catch(e) {}
 
-  if(!data || !data.elements){
+  if(mapped.length === 0 && fallbackQueryText){
     try {
-      const res2 = await fetch('https://maps.mail.ru/osm/tools/overpass/api/interpreter?data=' + encodeURIComponent(q));
-      if(res2.ok) data = await res2.json();
-    } catch(e) {}
+      const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fallbackQueryText)}&viewbox=${lastPos.lon-0.15},${lastPos.lat+0.15},${lastPos.lon+0.15},${lastPos.lat-0.15}&bounded=1&limit=5`;
+      const nomRes = await fetch(nomUrl, { headers: { 'Accept-Language': 'hi,en' } });
+      const nomData = await nomRes.json();
+      if(nomData && nomData.length > 0){
+        mapped = nomData.map(item => ({
+          name: item.display_name.split(',')[0],
+          lat: parseFloat(item.lat),
+          lon: parseFloat(item.lon),
+          dist: haversineKm(lastPos.lat, lastPos.lon, parseFloat(item.lat), parseFloat(item.lon))
+        })).sort((a,b) => a.dist - b.dist);
+      }
+    }catch(e){}
   }
 
-  if(!data || !data.elements || data.elements.filter(e => e.lat && e.lon).length === 0){
+  if(mapped.length === 0){
     setAiStatus(`Aaspaas koi ${label} nahi mila.`);
     speak(`Aaspaas koi ${label} nahi mila.`);
     return;
   }
 
-  const elements = data.elements.filter(e => e.lat && e.lon);
-  const nearest = elements.map(e => ({
-    name: e.tags?.name || label, lat: e.lat, lon: e.lon,
-    dist: haversineKm(lastPos.lat, lastPos.lon, e.lat, e.lon)
-  })).sort((a,b) => a.dist - b.dist)[0];
-
+  const nearest = mapped[0];
   const distStr = nearest.dist < 1 ? Math.round(nearest.dist * 1000) + ' meter' : nearest.dist.toFixed(1) + ' kilometer';
-  const txt = `Sabse najdeek ${label}: ${nearest.name}, ${distStr} door hai.`;
-  setAiStatus(txt); speak(txt);
+
+  await setDestination(nearest.lat, nearest.lon, `${nearest.name} (${label})`);
+
+  const txt = `Sabse najdeek ${label}: ${nearest.name}, ${distStr} door hai. Rasta set kar diya gaya hai!`;
+  setAiStatus(txt);
+  speak(txt);
 }
 
-// 🌟 एडवांस्ड और स्मार्ट AI चैट इंजन (Advanced Intent Processor)
+const Q = {
+  fuel: 'nwr["amenity"="fuel"]',
+  hospital: 'nwr["amenity"="hospital"]',
+  highway: 'way["highway"~"^(motorway|trunk)$"]',
+  tyre: 'nwr["shop"="tyre"]',
+  water: 'nwr["amenity"="drinking_water"]',
+  kirana: 'nwr["shop"~"^(convenience|supermarket|general)$"]',
+  snack: 'nwr["shop"="supermarket"]',
+  hotel: 'nwr["tourism"="hotel"]',
+  atm: 'nwr["amenity"="atm"]'
+};
+
 async function handleUserQuery(text){
   const t = text.toLowerCase().trim();
   setAiStatus('Aapne kaha: "' + text + '"');
 
-  // 1. ट्रैफिक जाम
-  if(/jam|traffic|bheed|जाम|ट्रैफिक/.test(t)){
-    await handleTrafficJam();
-    return;
-  }
+  if(/jam|traffic|bheed|जाम|ट्रैफिक/.test(t)){ await handleTrafficJam(); return; }
+  if(/highway|haivay|हाइवे/.test(t)){ await findNearby(Q.highway, 'highway', 'highway'); return; }
 
-  // 2. स्पीड चेक
-  if(/speed|kitni speed|गति|chaal/.test(t)){
-    const r = `Aapki current speed ${lastSpeedKmh} kilometer prati ghanta hai.`;
-    setAiStatus(r); speak(r); return;
-  }
-
-  // 3. लोकेशन / कहाँ हैं
-  if(/kahan|location|kahan hain|कहाँ|jagah/.test(t)){
-    const r = placeNameTextEl.textContent;
-    setAiStatus(r); speak(r); return;
-  }
-
-  // 4. डेस्टिनेशन / दूरी
-  if(/manzil|destination|kitni door|kitna door|dur kitna/.test(t)){
+  if(/manzil|destination|kitni door|kitna door|dur kitna|pahunchna/.test(t)){
     if(destination && lastPos){
       const d = haversineKm(lastPos.lat, lastPos.lon, destination.lat, destination.lon);
       const r = `Manzil ${destination.name} abhi ${d.toFixed(1)} kilometer door hai.`;
@@ -443,36 +532,19 @@ async function handleUserQuery(text){
     }
   }
 
-  // 5. थकान / नींद / आराम
-  if(/thak|neend|tired|aram|आराम|थकान/.test(t)){
-    const r = 'Kahin safe jagah par gaadi rok kar 10 minute aaram karein aur paani piyein.';
-    setAiStatus(r); speak(r); return;
-  }
+  if(/speed|kitni speed|गति/.test(t)){ const r = `Aapki speed ${lastSpeedKmh} km/h hai.`; setAiStatus(r); speak(r); return; }
+  if(/kahan|location|कहाँ/.test(t)){ const r = placeNameTextEl.textContent; setAiStatus(r); speak(r); return; }
 
-  // 6. खराब रास्ता / गड्ढा
-  if(/kharab|gaddha|khadda|panni|गड्ढा|खराब/.test(t)){
-    const r = 'Sambhal kar! Tyre aur gaadi bachane ke liye speed slow kar lijiye.';
-    setAiStatus(r); speak(r); return;
-  }
+  if(/petrol|fuel|diesel|पेट्रोल/.test(t)){ await findNearby(Q.fuel, 'petrol pump', 'petrol pump'); return; }
+  if(/hospital|doctor|clinic|अस्पताल|डॉक्टर/.test(t)){ await findNearby(Q.hospital, 'hospital', 'hospital'); return; }
+  if(/hawa|\bair\b|tyre|puncture|पंचर|पंप/.test(t)){ await findNearby(Q.tyre, 'air & puncture shop', 'puncture shop'); return; }
+  if(/pani|water|paani|पानी/.test(t)){ await findNearby(Q.water, 'water point', 'drinking water'); return; }
+  if(/kirana|rashan|grocery|किराना|राशन/.test(t)){ await findNearby(Q.kirana, 'kirana store', 'grocery store'); return; }
+  if(/chocolate|sweet|khane|food|चॉकलेट|खाना/.test(t)){ await findNearby(Q.snack, 'snack store', 'supermarket'); return; }
+  if(/hotel|room|rukne|होटल/.test(t)){ await findNearby(Q.hotel, 'hotel', 'hotel'); return; }
+  if(/atm|paisa|एटीएम/.test(t)){ await findNearby(Q.atm, 'ATM', 'ATM'); return; }
 
-  // 7. मौसम / बारिश
-  if(/mausam|weather|baarish|barish|बारिश|मौसम/.test(t)){
-    const r = 'Safar ke dauran mausam ka dhyan rakhein, safe ride karein!';
-    setAiStatus(r); speak(r); return;
-  }
-
-  // 8. नियरबाय इंटेंट चेक (Petrol, Hospital, Pump, Water, Kirana, ATM, etc.)
-  if(/petrol|fuel|pump|diesel|पेट्रोल/.test(t)){ await findNearby('node["amenity"="fuel"]', 'petrol pump'); return; }
-  if(/hospital|doctor|clinic|अस्पताल|डॉक्टर/.test(t)){ await findNearby('node["amenity"="hospital"]', 'hospital'); return; }
-  if(/hawa|air|tyre|पंचर|पंप/.test(t)){ await findNearby('node["shop"="tyre"]', 'air & puncture shop'); return; }
-  if(/pani|water|paani|पानी/.test(t)){ await findNearby('node["shop"="convenience"]', 'water store'); return; }
-  if(/kirana|rashan|grocery|किराना|राशन/.test(t)){ await findNearby('node["shop"="convenience"]', 'kirana store'); return; }
-  if(/chocolate|sweet|khane|food|चॉकलेट|खाना/.test(t)){ await findNearby('node["shop"="supermarket"]', 'chocolate & snack store'); return; }
-  if(/hotel|room|rukne|होटल/.test(t)){ await findNearby('node["tourism"="hotel"]', 'hotel'); return; }
-  if(/atm|paisa|एटीएम/.test(t)){ await findNearby('node["amenity"="atm"]', 'ATM'); return; }
-
-  // 9. यदि कोई और सामान्य सवाल हो
-  const generalReply = `Maine sun liya: "${text}". Safar mein savdhaan rahein, main aapke sath hoon!`;
+  const generalReply = `Maine sun liya: "${text}" — Main yahin hoon, safe ride karein!`;
   setAiStatus(generalReply);
   speak(generalReply);
 }
@@ -485,12 +557,11 @@ aiChatSendBtn.addEventListener('click', () => {
 });
 aiChatInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') aiChatSendBtn.click(); });
 
-// Destination Autocomplete Search
 let searchTimeout = null;
 destInput.addEventListener('input', () => {
   clearTimeout(searchTimeout);
   const q = destInput.value.trim();
-  if(q.length < 2){ destSuggestionsEl.style.display = 'none'; return; }
+  if(q.length < 3){ destSuggestionsEl.style.display = 'none'; return; }
 
   searchTimeout = setTimeout(async () => {
     try {
@@ -502,24 +573,33 @@ destInput.addEventListener('input', () => {
       const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=6&addressdetails=1${viewboxParam}`;
       const res = await fetch(url, { headers: { 'Accept-Language': 'hi,en' } });
       const results = await res.json();
-      
+
       if(!results || results.length === 0){ destSuggestionsEl.style.display = 'none'; return; }
 
-      destSuggestionsEl.innerHTML = results.map(item => `
-        <div class="dest-suggestion-item" data-lat="${item.lat}" data-lon="${item.lon}" data-name="${item.display_name}" style="padding:11px 12px; font-size:13px; border-bottom:1px solid var(--line); cursor:pointer; background:var(--panel-2); color:var(--text); display:flex; align-items:center; gap:8px;">
-          <span style="font-size:16px;">📍</span>
-          <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.display_name}</span>
-        </div>
-      `).join('');
-      destSuggestionsEl.style.display = 'block';
+      destSuggestionsEl.innerHTML = '';
+      results.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'dest-suggestion-item';
+        div.style.cssText = 'padding:11px 12px; font-size:13px; border-bottom:1px solid var(--line); cursor:pointer; background:var(--panel-2); color:var(--text); display:flex; align-items:center; gap:8px;';
 
-      document.querySelectorAll('.dest-suggestion-item').forEach(el => {
-        el.addEventListener('click', () => {
-          setDestination(parseFloat(el.getAttribute('data-lat')), parseFloat(el.getAttribute('data-lon')), el.getAttribute('data-name').split(',')[0]);
+        const iconSpan = document.createElement('span');
+        iconSpan.textContent = '📍';
+        iconSpan.style.fontSize = '16px';
+
+        const textSpan = document.createElement('span');
+        textSpan.style.cssText = 'overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+        textSpan.textContent = item.display_name;
+
+        div.appendChild(iconSpan);
+        div.appendChild(textSpan);
+        div.addEventListener('click', () => {
+          setDestination(parseFloat(item.lat), parseFloat(item.lon), item.display_name.split(',')[0]);
         });
+        destSuggestionsEl.appendChild(div);
       });
+      destSuggestionsEl.style.display = 'block';
     } catch(e) { destSuggestionsEl.style.display = 'none'; }
-  }, 350);
+  }, 500);
 });
 
 document.addEventListener('click', (e) => {
@@ -529,19 +609,19 @@ document.addEventListener('click', (e) => {
 });
 
 async function setDestination(lat, lon, name){
-  destination = { lat, lon, name, currentStepIndex: 0 };
+  destination = { lat, lon, name, currentStepIndex: 0, steps: null };
+  activeRouteData = null; routeCoordsCache = [];
   destInput.value = name;
   destSuggestionsEl.style.display = 'none';
   destStatusEl.textContent = `🎯 ${name} set ho gaya!`;
-  speak(`${name} destination set ho gaya.`);
   if(map){
     if(destMarker) map.removeLayer(destMarker);
     destMarker = L.marker([lat, lon]).addTo(map).bindPopup(name);
   }
   if(lastPos){
-    const route = await drawRoute(lastPos.lat, lastPos.lon, lat, lon);
-    if(route) destination.steps = route.steps;
+    await buildRouteForDestination(lastPos.lat, lastPos.lon);
   }
+  // lastPos nahi hai to pehle GPS fix par handlePosition route bana dega
 }
 
 setDestBtn.addEventListener('click', async () => {
@@ -557,6 +637,8 @@ setDestBtn.addEventListener('click', async () => {
 
 clearDestBtn.addEventListener('click', () => {
   destination = null; destInput.value = ''; destSuggestionsEl.style.display = 'none'; destStatusEl.textContent = ''; navPanelEl.style.display = 'none';
+  activeRouteData = null; routeCoordsCache = [];
+  destDistValEl.textContent = '--'; destTimeValEl.textContent = '--';
   if(destMarker && map){ map.removeLayer(destMarker); destMarker = null; }
   if(routeLine && map){ map.removeLayer(routeLine); routeLine = null; }
 });
@@ -571,7 +653,7 @@ function handlePosition(pos){
     headingDeg = bearing(lastPos.lat, lastPos.lon, latitude, longitude);
   }
   if(headingDeg === null || isNaN(headingDeg)){ headingDeg = lastHeading !== null ? lastHeading : 0; }
-  
+
   if(lastHeading !== null && speedKmh > 20){
     let turnDiff = Math.abs(((headingDeg - lastHeading + 540) % 360) - 180);
     if(turnDiff > 45 && Date.now() - lastTurnSpoken > 25000){
@@ -582,14 +664,47 @@ function handlePosition(pos){
   }
   lastHeading = headingDeg;
 
-  if(lastPos) tripDistanceKm += haversineKm(lastPos.lat, lastPos.lon, latitude, longitude);
-  
+  if(lastPos){
+    const d = haversineKm(lastPos.lat, lastPos.lon, latitude, longitude);
+    tripDistanceKm += d;
+    tripDistanceEl.textContent = tripDistanceKm.toFixed(1);
+  }
+
+  if(destination){
+    const remDist = haversineKm(latitude, longitude, destination.lat, destination.lon);
+    destDistValEl.textContent = remDist >= 1 ? remDist.toFixed(1) + ' km' : Math.round(remDist * 1000) + ' m';
+
+    if(activeRouteData && activeRouteData.initialDistKm > 0){
+      const ratio = Math.max(0, Math.min(1, remDist / activeRouteData.initialDistKm));
+      const remMin = Math.round(activeRouteData.durationMin * ratio);
+      destTimeValEl.textContent = remMin >= 60 ? (remMin/60).toFixed(1) + ' hrs' : remMin + ' min';
+
+      // Off-route (100 m+) hone par, 30 second cooldown ke saath re-route
+      if(routeCoordsCache.length > 1 && Date.now() - lastRerouteTime > 30000){
+        if(distToRouteM(latitude, longitude, routeCoordsCache) > 100){
+          lastRerouteTime = Date.now();
+          buildRouteForDestination(latitude, longitude);
+        }
+      }
+    } else {
+      if(speedKmh > 5){
+        const remMin = Math.round((remDist / speedKmh) * 60);
+        destTimeValEl.textContent = remMin >= 60 ? (remMin/60).toFixed(1) + ' hrs' : remMin + ' min';
+      }
+      // Destination pehle set hui thi, ab GPS mila to route banao
+      if(!routeRequestPending){
+        routeRequestPending = true;
+        buildRouteForDestination(latitude, longitude).finally(() => { routeRequestPending = false; });
+      }
+    }
+  }
+
   speedValueEl.textContent = speedKmh;
   speedValueEl.className = 'speed-value' + (speedKmh > speedLimit ? ' over' : '');
   needleEl.style.transform = `rotate(${headingDeg}deg)`;
   compassLabelEl.textContent = `${compassLabel(headingDeg)} · ${Math.round(headingDeg)}°`;
-  
-  updateMap(latitude, longitude, headingDeg);
+
+  updateMap(latitude, longitude);
   updatePlaceName(latitude, longitude);
   if(destination) updateTurnByTurn(latitude, longitude);
 
@@ -601,16 +716,30 @@ function handlePosition(pos){
   lastSpeedKmh = speedKmh;
 }
 
+async function requestWakeLock(){
+  try{
+    if('wakeLock' in navigator){ wakeLock = await navigator.wakeLock.request('screen'); }
+  }catch(e){}
+}
+function releaseWakeLock(){
+  try{ if(wakeLock){ wakeLock.release(); wakeLock = null; } }catch(e){}
+}
+document.addEventListener('visibilitychange', () => {
+  if(tracking && document.visibilityState === 'visible') requestWakeLock();
+});
+
 startBtn.addEventListener('click', () => {
   if(tracking){
     tracking = false; startBtn.textContent = 'Start Ride'; startBtn.classList.remove('stop');
     statusDot.classList.remove('live'); navigator.geolocation.clearWatch(watchId);
+    releaseWakeLock();
     setAlert('Ride ruk gayi.');
   } else {
     if(!('geolocation' in navigator)){ setAlert('GPS not supported', 'warn'); return; }
     tracking = true; startBtn.textContent = 'Stop Ride'; startBtn.classList.add('stop');
     statusDot.classList.add('live'); setAlert('Tracking shuru ho gayi!', 'ok');
-    watchId = navigator.geolocation.watchPosition(handlePosition, () => setAlert('GPS Error', 'warn'), { enableHighAccuracy: true });
+    requestWakeLock();
+    watchId = navigator.geolocation.watchPosition(handlePosition, () => setAlert('GPS Error: location permission check karein', 'warn'), { enableHighAccuracy: true });
   }
 });
 
@@ -624,19 +753,13 @@ recenterBtn.addEventListener('click', () => {
   }
 });
 
-rotateModeBtn.addEventListener('click', () => {
-  mapRotationMode = !mapRotationMode;
-  rotateModeBtn.textContent = mapRotationMode ? '🧭 Ghoomta Map' : '⬆️ North-Up';
-  rotateModeBtn.classList.toggle('on', mapRotationMode);
-});
-
 talkBtn.addEventListener('click', () => {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SR){ setAiStatus('Voice support available nahi hai.'); return; }
   const recognition = new SR(); recognition.lang = 'hi-IN';
   talkBtn.classList.add('listening'); talkBtn.textContent = '🎙️ Sun raha hoon...';
-  
-  recognition.onresult = async (event) => {
+
+  recognition.onresult = (event) => {
     handleUserQuery(event.results[event.results.length - 1][0].transcript);
   };
   recognition.onend = () => { talkBtn.classList.remove('listening'); talkBtn.textContent = '🎤 Ya Bolkar Baat karein'; };
@@ -645,13 +768,13 @@ talkBtn.addEventListener('click', () => {
 
 btnTrafficJam.addEventListener('click', handleTrafficJam);
 
-document.getElementById('nearFuel').addEventListener('click', () => findNearby('node["amenity"="fuel"]', 'petrol pump'));
-document.getElementById('nearHosp').addEventListener('click', () => findNearby('node["amenity"="hospital"]', 'hospital'));
-document.getElementById('nearPump').addEventListener('click', () => findNearby('node["shop"="tyre"]', 'air & puncture shop'));
-document.getElementById('nearWater').addEventListener('click', () => findNearby('node["shop"="convenience"]', 'water store'));
-document.getElementById('nearKirana').addEventListener('click', () => findNearby('node["shop"="convenience"]', 'kirana store'));
-document.getElementById('nearFood').addEventListener('click', () => findNearby('node["shop"="supermarket"]', 'chocolate & snack store'));
-document.getElementById('nearAtm').addEventListener('click', () => findNearby('node["amenity"="atm"]', 'ATM'));
+document.getElementById('nearFuel').addEventListener('click', () => findNearby(Q.fuel, 'petrol pump', 'petrol pump'));
+document.getElementById('nearHosp').addEventListener('click', () => findNearby(Q.hospital, 'hospital', 'hospital'));
+document.getElementById('nearHighway').addEventListener('click', () => findNearby(Q.highway, 'highway', 'highway'));
+document.getElementById('nearPump').addEventListener('click', () => findNearby(Q.tyre, 'air & puncture shop', 'puncture shop'));
+document.getElementById('nearWater').addEventListener('click', () => findNearby(Q.water, 'water point', 'drinking water'));
+document.getElementById('nearKirana').addEventListener('click', () => findNearby(Q.kirana, 'kirana store', 'grocery store'));
+document.getElementById('nearAtm').addEventListener('click', () => findNearby(Q.atm, 'ATM', 'ATM'));
 </script>
 </body>
 </html>
