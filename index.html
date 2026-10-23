@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet">
 <style>
   :root{
     --bg:#0E1218;
@@ -468,8 +469,13 @@
   </div>
 
   <div class="panel">
-    <div class="panel-title">📍 Live location</div>
-    <div id="liveMap" style="height:200px; border-radius:12px; overflow:hidden; background:var(--panel-2);"></div>
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+      <div class="panel-title" style="margin-bottom:0;">📍 Live location</div>
+      <button id="rotateModeBtn" class="toggle-btn on" style="font-size:11px; padding:5px 10px;">🧭 Ghoomta Map</button>
+    </div>
+    <div id="liveMapOuter" style="height:200px; border-radius:12px; overflow:hidden; background:var(--panel-2); position:relative;">
+      <div id="liveMap" style="position:absolute; top:50%; left:50%; width:200%; height:200%; transform:translate(-50%,-50%); transition:transform .25s linear;"></div>
+    </div>
     <div class="ai-status" id="placeNameText">Location track karne ke liye "Start Ride" dabayein.</div>
   </div>
 
@@ -633,6 +639,8 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet/leaflet-maplibre-gl.js"></script>
 <script>
   const speedValueEl = document.getElementById('speedValue');
   const needleEl = document.getElementById('needle');
@@ -694,6 +702,7 @@
   const aiStatusEl = document.getElementById('aiStatus');
   const watchStatusEl = document.getElementById('watchStatus');
   const placeNameTextEl = document.getElementById('placeNameText');
+  const rotateModeBtn = document.getElementById('rotateModeBtn');
   const weatherNowEl = document.getElementById('weatherNow');
   const weatherAlertTextEl = document.getElementById('weatherAlertText');
   const destInput = document.getElementById('destInput');
@@ -734,6 +743,7 @@
 
   let lastPos = null;      // {lat, lon, time}
   let lastSpeedKmh = 0;
+  let avgSpeedKmh = 0;
   let lastSpeedTime = null;
   let tripDistanceKm = 0;
   let tripStartTime = null;
@@ -1209,18 +1219,22 @@
     }
 
     const info = maneuverInfo(next);
+    const roadName = (next.name && next.name.trim()) ? next.name.trim() : '';
     navPanelEl.style.display = 'flex';
     navIconEl.textContent = info.icon;
-    navInstructionEl.textContent = hindi ? info.hi : info.en;
+    navInstructionEl.textContent = (hindi ? info.hi : info.en) + (roadName ? ` — ${roadName}` : '');
     navDistanceEl.textContent = distToNext >= 1000 ? (distToNext/1000).toFixed(1) + ' km' : Math.round(distToNext) + ' m';
 
     const label = hindi ? info.hi : info.en;
+    const spokenLabel = roadName
+      ? (hindi ? `${label}, ${roadName} ki taraf` : `${label}, towards ${roadName}`)
+      : label;
     if(distToNext <= 400 && distToNext > 100 && !destination.announcedFar){
       destination.announcedFar = true;
-      speak(hindi ? `${Math.round(distToNext)} meter mein ${label}` : `In ${Math.round(distToNext)} meters, ${label}`);
+      speak(hindi ? `${Math.round(distToNext)} meter mein ${spokenLabel}` : `In ${Math.round(distToNext)} meters, ${spokenLabel}`);
     } else if(distToNext <= 60 && !destination.announcedNear){
       destination.announcedNear = true;
-      speak(label);
+      speak(spokenLabel);
     }
 
     // Total remaining distance = current gap + all remaining full steps
@@ -1228,9 +1242,26 @@
     for(let i = idx + 1; i < steps.length - 1; i++){
       remKm += steps[i].distance / 1000;
     }
+
+    // ETA: prefer the rider's own actual average speed this trip; fall back to the
+    // route's originally-estimated pace if we don't have a meaningful speed yet.
+    let paceKmh = avgSpeedKmh;
+    if(!(paceKmh > 3) && destination.totalDistanceKm && destination.totalDurationMin){
+      paceKmh = destination.totalDistanceKm / (destination.totalDurationMin / 60);
+    }
+    let etaText = '';
+    if(paceKmh > 3){
+      const etaMin = (remKm / paceKmh) * 60;
+      const arrival = new Date(Date.now() + etaMin * 60000);
+      const arrivalStr = arrival.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+      etaText = hindi
+        ? `, ~${Math.round(etaMin)} min (pahunchenge ${arrivalStr})`
+        : `, ~${Math.round(etaMin)} min (arrive ${arrivalStr})`;
+    }
+
     destStatusEl.textContent = hindi
-      ? `🎯 ${destination.name} — baaki: ${remKm.toFixed(1)} km`
-      : `🎯 ${destination.name} — remaining: ${remKm.toFixed(1)} km`;
+      ? `🎯 ${destination.name} — baaki: ${remKm.toFixed(1)} km${etaText}`
+      : `🎯 ${destination.name} — remaining: ${remKm.toFixed(1)} km${etaText}`;
   }
 
   function finishNavigation(){
@@ -1296,16 +1327,33 @@
   }
 
   let lastMapRenderPos = null;
+  let maplibreLayer = null;
+  let mapRotationMode = true; // true = heading-up (container rotates via CSS), false = north-up (fixed, icon rotates)
+  const liveMapEl = document.getElementById('liveMap');
+
+  function applyMapContainerRotation(headingDeg){
+    // The maplibre-gl-leaflet bridge does not support native bearing/rotation,
+    // so heading-up mode is achieved by CSS-rotating the whole (oversized) map
+    // container instead; the bike icon's own rotation cancels this out so it
+    // always points straight up on screen.
+    if(!liveMapEl) return;
+    if(mapRotationMode && headingDeg !== null && headingDeg !== undefined){
+      liveMapEl.style.transform = `translate(-50%,-50%) rotate(${-headingDeg}deg)`;
+    } else {
+      liveMapEl.style.transform = 'translate(-50%,-50%) rotate(0deg)';
+    }
+  }
 
   function updateMap(lat, lon, headingDeg){
     try{
       if(!map){
         map = L.map('liveMap', { zoomControl: false, attributionControl: true, preferCanvas: true }).setView([lat, lon], 16);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '© OpenStreetMap'
+        maplibreLayer = L.maplibreGL({
+          style: 'https://tiles.openfreemap.org/styles/bright',
+          attribution: 'OpenFreeMap © OpenMapTiles, © OpenStreetMap contributors'
         }).addTo(map);
         marker = L.marker([lat, lon], { icon: bikeIcon(headingDeg) }).addTo(map);
+        applyMapContainerRotation(headingDeg);
         lastMapRenderPos = { lat, lon };
         return;
       }
@@ -1318,7 +1366,8 @@
       lastMapRenderPos = { lat, lon };
 
       marker.setLatLng([lat, lon]);
-      marker.setIcon(bikeIcon(headingDeg));
+      marker.setIcon(bikeIcon(headingDeg)); // icon's own rotation cancels the container's rotation in heading-up mode
+      applyMapContainerRotation(headingDeg);
 
       // Speed-based throttling: skip camera re-centering while genuinely stationary
       if(lastSpeedKmh > 0){
@@ -1606,7 +1655,8 @@
     const elapsed = (Date.now() - tripStartTime) / 1000;
     tripTimeEl.textContent = formatTime(elapsed);
     const hours = elapsed / 3600;
-    avgSpeedEl.textContent = hours > 0 ? Math.round(tripDistanceKm / hours) : 0;
+    avgSpeedKmh = hours > 0 ? (tripDistanceKm / hours) : 0;
+    avgSpeedEl.textContent = Math.round(avgSpeedKmh);
 
     // Rest / fatigue reminder
     const elapsedMin = elapsed / 60;
@@ -2043,6 +2093,16 @@
     voiceToggleBtn.classList.toggle('on', voiceOn);
   });
 
+  rotateModeBtn.addEventListener('click', () => {
+    mapRotationMode = !mapRotationMode;
+    rotateModeBtn.textContent = mapRotationMode ? '🧭 Ghoomta Map' : '⬆️ North-Up';
+    rotateModeBtn.classList.toggle('on', mapRotationMode);
+    if(!mapRotationMode){
+      applyMapContainerRotation(null); // reset to north-up immediately
+    }
+    lastMapRenderPos = null; // force the next position update to re-render immediately
+  });
+
   langToggleBtn.addEventListener('click', () => {
     hindi = !hindi;
     langToggleBtn.textContent = hindi ? 'हिंदी' : 'English';
@@ -2297,12 +2357,19 @@
 
   function applyRouteWithSteps(route, place){
     destination.steps = route.steps;
-    destStatusEl.textContent = `🎯 ${place.name} — ${route.distanceKm.toFixed(1)} km (~${Math.round(route.durationMin)} min)`;
+    destination.totalDistanceKm = route.distanceKm;
+    destination.totalDurationMin = route.durationMin;
+    const eta = new Date(Date.now() + route.durationMin * 60000);
+    const etaStr = eta.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    destStatusEl.textContent = hindi
+      ? `🎯 ${place.name} — ${route.distanceKm.toFixed(1)} km, ~${Math.round(route.durationMin)} min (pahunchenge ${etaStr})`
+      : `🎯 ${place.name} — ${route.distanceKm.toFixed(1)} km, ~${Math.round(route.durationMin)} min (arrive ${etaStr})`;
     navPanelEl.style.display = 'flex';
     const next = route.steps[1];
     const info = maneuverInfo(next);
+    const roadName = (next.name && next.name.trim()) ? next.name.trim() : '';
     navIconEl.textContent = info.icon;
-    navInstructionEl.textContent = hindi ? info.hi : info.en;
+    navInstructionEl.textContent = (hindi ? info.hi : info.en) + (roadName ? ` — ${roadName}` : '');
     navDistanceEl.textContent = '--';
 
     if(map && route.coords && route.coords.length > 1){
