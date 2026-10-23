@@ -108,17 +108,17 @@ body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; m
       <div class="panel-title" style="margin-bottom:0;">📍 Live Map</div>
       <button id="rotateModeBtn" class="toggle-btn on" style="font-size:11px; padding:5px 10px;">🧭 Ghoomta Map</button>
     </div>
-    <div style="height:180px; border-radius:12px; overflow:hidden; background:var(--panel-2); position:relative;">
-      <div id="liveMap" style="position:absolute; top:50%; left:50%; width:200%; height:200%; transform:translate(-50%,-50%); transition:transform .25s linear;"></div>
+    <div id="mapContainer" style="height:200px; border-radius:12px; overflow:hidden; background:var(--panel-2); position:relative; z-index:1;">
+      <div id="liveMap" style="width:100%; height:100%;"></div>
     </div>
-    <div class="ai-status" id="placeNameText">Location track karne ke liye "Start Ride" dabayein.</div>
+    <div class="ai-status" id="placeNameText" style="margin-top:6px; font-weight:600; color:var(--teal);">Location track karne ke liye "Start Ride" dabayein.</div>
   </div>
 
   <div class="panel">
-    <div class="panel-title">🎯 Destination Search</div>
+    <div class="panel-title">🎯 Destination Search (College / Shop / Highway)</div>
     <div class="sos-input-row">
       <input type="text" id="destInput" placeholder="College ya Shop ka naam likhein..." autocomplete="off">
-      <div id="destSuggestions" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--panel-2); border:1px solid var(--line); border-radius:0 0 8px 8px; z-index:100; max-height:150px; overflow-y:auto;"></div>
+      <div id="destSuggestions" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--panel-2); border:1px solid var(--line); border-radius:0 0 8px 8px; z-index:1000; max-height:150px; overflow-y:auto;"></div>
     </div>
     <div class="sos-buttons" style="margin-top:8px;">
       <button id="setDestBtn" class="sos-btn share">Set</button>
@@ -131,9 +131,8 @@ body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; m
 
   <div class="panel">
     <div class="panel-title">🤖 AI Saathi (Chat & Voice)</div>
-    <!-- नया AI Chat/Search Bar -->
     <div class="sos-input-row" style="margin-bottom:8px;">
-      <input type="text" id="aiChatInput" placeholder="Yahan kuch bhi type karke puchein (jaise: Jam hai, petrol)..." autocomplete="off">
+      <input type="text" id="aiChatInput" placeholder="Yahan kuch bhi puchein (jaise: Jam hai, petrol)..." autocomplete="off">
       <button id="aiChatSendBtn" class="sos-btn share" style="flex:0 0 70px;">Poochein</button>
     </div>
     <button id="talkBtn" class="btn-talk">🎤 Ya Bolkar Baat karein</button>
@@ -167,6 +166,7 @@ const speedValueEl = document.getElementById('speedValue');
 const needleEl = document.getElementById('needle');
 const compassLabelEl = document.getElementById('compassLabel');
 const navPanelEl = document.getElementById('navPanel');
+const navIconEl = document.getElementById('navIcon');
 const navInstructionEl = document.getElementById('navInstruction');
 const navDistanceEl = document.getElementById('navDistance');
 const alertBarEl = document.getElementById('alertBar');
@@ -185,14 +185,14 @@ const setDestBtn = document.getElementById('setDestBtn');
 const clearDestBtn = document.getElementById('clearDestBtn');
 const destStatusEl = document.getElementById('destStatus');
 const destSuggestionsEl = document.getElementById('destSuggestions');
-const liveMapEl = document.getElementById('liveMap');
+const placeNameTextEl = document.getElementById('placeNameText');
 const rotateModeBtn = document.getElementById('rotateModeBtn');
 
 let tracking = false; let watchId = null; let speedLimit = 60;
 let hindi = true; let lastPos = null; let lastSpeedKmh = 0; let tripDistanceKm = 0;
 let lastOverspeedSpoken = 0; let lastTurnSpoken = 0; let lastHeading = null;
-let map = null; let marker = null; let destination = null; let destMarker = null;
-let mapRotationMode = true;
+let map = null; let marker = null; let destMarker = null; let routeLine = null;
+let destination = null; let mapRotationMode = true; let maplibreLayer = null;
 
 function toRad(v){ return v * Math.PI / 180; }
 function haversineKm(lat1, lon1, lat2, lon2){
@@ -210,7 +210,7 @@ function compassLabel(deg){
   return dirs[Math.round(deg / 45) % 8];
 }
 
-// Natural Girl Voice
+// Sweet Natural Girl Voice
 function speak(text){
   try{
     window.speechSynthesis.cancel();
@@ -224,17 +224,139 @@ function speak(text){
 function setAlert(text, kind){ alertBarEl.textContent = text; alertBarEl.className = 'alert-bar' + (kind ? ' ' + kind : ''); }
 function setAiStatus(text){ aiStatusEl.textContent = text; }
 
-// Auto Night / Dark Mode
+// Auto Day / Night Mode & Styles
 function checkAutoTheme(){
   const hour = new Date().getHours();
   const isNight = hour < 6 || hour >= 18;
   document.body.setAttribute('data-theme', isNight ? 'dark' : 'light');
   themeToggle.textContent = isNight ? '🌙 Night Mode' : '☀️ Day Mode';
+  
+  if(maplibreLayer && map){
+    const styleUrl = isNight ? 'https://tiles.openfreemap.org/styles/liberty' : 'https://tiles.openfreemap.org/styles/bright';
+    try {
+      map.removeLayer(maplibreLayer);
+      maplibreLayer = L.maplibreGL({ style: styleUrl }).addTo(map);
+      if(marker) marker.bringToFront();
+    } catch(e){}
+  }
 }
 checkAutoTheme();
 setInterval(checkAutoTheme, 60000);
 
-// Nearby Places Search
+// Place Name Reverse Geocoding
+async function updatePlaceName(lat, lon){
+  try{
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`, { headers: { 'Accept-Language': 'hi' } });
+    const data = await res.json();
+    if(data && data.display_name){
+      const shortName = data.display_name.split(',').slice(0, 3).join(',');
+      placeNameTextEl.textContent = `📍 ${shortName}`;
+    }
+  }catch(e){}
+}
+
+// Highway & Turn Maneuvers
+function maneuverInfo(step){
+  if(!step) return { icon: '🏁', text: 'Manzil aa gayi' };
+  if(step.type === 'arrive') return { icon: '🏁', text: 'Manzil aa gayi' };
+  
+  const type = step.type;
+  const mod = step.modifier || '';
+  
+  if(type === 'off ramp' || type === 'exit'){
+    const isLeft = mod.includes('left');
+    return {
+      icon: isLeft ? '↙️' : '↘️',
+      text: isLeft ? 'Bayin taraf slip road se niche utre' : 'Dahine taraf slip road se niche utre'
+    };
+  }
+  
+  if(/underpass|tunnel/.test(type)){
+    return { icon: '⬇️', text: 'Bridge ke niche se aage badhe' };
+  }
+
+  const modMap = {
+    'right': { icon: '➡️', text: 'Right mudiye' },
+    'slight right': { icon: '↗️', text: 'Halka right mudiye' },
+    'left': { icon: '⬅️', text: 'Left mudiye' },
+    'slight left': { icon: '↖️', text: 'Halka left mudiye' },
+    'uturn': { icon: '↩️', text: 'U-turn lijiye' }
+  };
+  return modMap[mod] || { icon: '⬆️', text: step.name ? `${step.name} ki taraf chaliye` : 'Seedhe chaliye' };
+}
+
+// Blue Route Polyline
+async function drawRoute(fromLat, fromLon, toLat, toLon, alternative=false){
+  try{
+    const url = `https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}?overview=full&geometries=geojson&steps=true${alternative ? '&alternatives=true' : ''}`;
+    const res = await fetch(url); const data = await res.json();
+    if(data.routes && data.routes.length > 0){
+      const route = data.routes[alternative && data.routes.length > 1 ? 1 : 0];
+      const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+      
+      if(routeLine) map.removeLayer(routeLine);
+      routeLine = L.polyline(coords, { color: '#2DD4BF', weight: 5, opacity: 0.8 }).addTo(map);
+      
+      const steps = route.legs[0].steps.map(s => ({
+        type: s.maneuver.type, modifier: s.maneuver.modifier,
+        lat: s.maneuver.location[1], lon: s.maneuver.location[0],
+        distance: s.distance, name: s.name
+      }));
+      return { distanceKm: route.distance / 1000, durationMin: route.duration / 60, steps, coords };
+    }
+  }catch(e){}
+  return null;
+}
+
+function updateTurnByTurn(lat, lon){
+  if(!destination || !destination.steps) return;
+  const steps = destination.steps; const idx = destination.currentStepIndex || 0;
+  if(idx >= steps.length){ navPanelEl.style.display = 'none'; return; }
+  const next = steps[idx];
+  const distToNext = haversineKm(lat, lon, next.lat, next.lon) * 1000;
+  
+  if(distToNext < 25){
+    destination.currentStepIndex = idx + 1;
+    updateTurnByTurn(lat, lon);
+    return;
+  }
+  
+  const info = maneuverInfo(next);
+  navPanelEl.style.display = 'flex';
+  navIconEl.textContent = info.icon;
+  navInstructionEl.textContent = info.text + (next.name ? ` (${next.name})` : '');
+  navDistanceEl.textContent = distToNext >= 1000 ? (distToNext/1000).toFixed(1) + ' km' : Math.round(distToNext) + ' m';
+}
+
+// Map Initialization
+function initMap(lat, lon){
+  if(map) return;
+  map = L.map('liveMap', { zoomControl: false, attributionControl: false }).setView([lat, lon], 16);
+  const hour = new Date().getHours();
+  const isNight = hour < 6 || hour >= 18;
+  const styleUrl = isNight ? 'https://tiles.openfreemap.org/styles/liberty' : 'https://tiles.openfreemap.org/styles/bright';
+  maplibreLayer = L.maplibreGL({ style: styleUrl }).addTo(map);
+  
+  const bikeIcon = L.divIcon({
+    className: 'bike-marker',
+    html: `<div style="font-size:28px; transform:translate(-14px, -14px);">🏍️</div>`,
+    iconSize: [28, 28], iconAnchor: [14, 14]
+  });
+  marker = L.marker([lat, lon], { icon: bikeIcon }).addTo(map);
+}
+
+function updateMap(lat, lon, headingDeg){
+  try{
+    if(!map){ initMap(lat, lon); return; }
+    marker.setLatLng([lat, lon]);
+    if(mapRotationMode && headingDeg !== null){
+      map.setBearing(-headingDeg);
+    }
+    map.setView([lat, lon], map.getZoom(), { animate: false });
+  }catch(e){}
+}
+
+// Nearby Search
 async function findNearby(osmFilter, label){
   if(!lastPos){ setAiStatus('Pehle "Start Ride" dabayein.'); return; }
   setAiStatus(`Najdeek ${label} dhoond raha hoon...`);
@@ -259,24 +381,22 @@ function detectNearbyIntent(text){
   return null;
 }
 
-// AI Message Handler (Common for both Text Bar & Voice)
+// AI Chat Handler
 async function handleUserQuery(text){
   const t = text.toLowerCase();
   setAiStatus('Aapne kaha: "' + text + '"');
 
-  // 1. Traffic Jam & Alternative Route
   if(/jam|traffic|bheed|जाम|ट्रैफिक/.test(t)){
     speak('Rasta jam hai? Main doosra rasta dhoond raha hoon...');
     if(destination && lastPos){
-      const altRoute = await getRouteWithSteps(lastPos.lat, lastPos.lon, destination.lat, destination.lon, true);
-      if(altRoute){ destination.steps = altRoute.steps; speak('Yeh lo doosra rasta mil gaya!'); setAiStatus('Alternative route set ho gaya!'); return; }
+      const altRoute = await drawRoute(lastPos.lat, lastPos.lon, destination.lat, destination.lon, true);
+      if(altRoute){ destination.steps = altRoute.steps; destination.currentStepIndex = 0; speak('Yeh lo doosra rasta mil gaya!'); setAiStatus('Alternative route set ho gaya!'); return; }
     }
     speak('Filhal koi doosra alternative route nahi mila.');
     setAiStatus('Alternative route nahi mila.');
     return;
   }
 
-  // 2. Road Obstacles & Tiredness
   if(/kharab rasta|gaddha|khadda|खराब|गड्ढा/.test(t)){
     const r = 'Sambhal kar! Tyre aur gaadi bachane ke liye speed bilkul slow kar lo.';
     setAiStatus(r); speak(r); return;
@@ -286,28 +406,30 @@ async function handleUserQuery(text){
     setAiStatus(r); speak(r); return;
   }
 
-  // 3. Nearby Search Intent
   const nearby = detectNearbyIntent(t);
   if(nearby){ await findNearby(nearby.filter, nearby.label); return; }
 
-  // 4. Default Friendly Reply
-  const fallback = 'Sahi kaha! Ride enjoy karo, main yahin hoon.';
-  setAiStatus(fallback); speak(fallback);
+  let reply = '';
+  if(/mausam|weather|baarish|بارिश/.test(t)){
+    reply = 'Mausam bilkul saaf lag raha hai, phir bhi savdhaan rahein!';
+  } else if(/speed|kitni speed|गति/.test(t)){
+    reply = `Aapki current speed ${lastSpeedKmh} km/h hai. Limit ke andar chalaayein!`;
+  } else if(/kahan|location|कहाँ/.test(t)){
+    reply = placeNameTextEl.textContent;
+  } else {
+    reply = `Maine sun liya: "${text}" — apni safety ka dhyan rakho, main yahin hoon!`;
+  }
+  setAiStatus(reply);
+  speak(reply);
 }
 
-// Text Chat Bar Event Listeners
 aiChatSendBtn.addEventListener('click', () => {
   const val = aiChatInput.value.trim();
   if(!val) return;
   aiChatInput.value = '';
   handleUserQuery(val);
 });
-
-aiChatInput.addEventListener('keypress', (e) => {
-  if(e.key === 'Enter'){
-    aiChatSendBtn.click();
-  }
-});
+aiChatInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') aiChatSendBtn.click(); });
 
 // Destination Autocomplete Search
 let searchTimeout = null;
@@ -329,67 +451,46 @@ destInput.addEventListener('input', () => {
       
       document.querySelectorAll('.dest-suggestion-item').forEach(el => {
         el.addEventListener('click', () => {
-          const lat = parseFloat(el.getAttribute('data-lat'));
-          const lon = parseFloat(el.getAttribute('data-lon'));
-          const name = el.getAttribute('data-name').split(',')[0];
-          destination = { lat, lon, name };
-          destInput.value = name;
-          destSuggestionsEl.style.display = 'none';
-          destStatusEl.textContent = `🎯 ${name} set ho gaya!`;
-          speak(`${name} set ho gaya.`);
-          if(map){
-            if(destMarker) map.removeLayer(destMarker);
-            destMarker = L.marker([lat, lon]).addTo(map).bindPopup(name);
-          }
+          setDestination(parseFloat(el.getAttribute('data-lat')), parseFloat(el.getAttribute('data-lon')), el.getAttribute('data-name').split(',')[0]);
         });
       });
     }catch(e){}
   }, 400);
 });
 
-async function getRouteWithSteps(fromLat, fromLon, toLat, toLon, alternative=false){
+async function setDestination(lat, lon, name){
+  destination = { lat, lon, name, currentStepIndex: 0 };
+  destInput.value = name;
+  destSuggestionsEl.style.display = 'none';
+  destStatusEl.textContent = `🎯 ${name} set ho gaya!`;
+  speak(`${name} destination set ho gaya.`);
+  
+  if(map){
+    if(destMarker) map.removeLayer(destMarker);
+    destMarker = L.marker([lat, lon]).addTo(map).bindPopup(name);
+  }
+  if(lastPos){
+    const route = await drawRoute(lastPos.lat, lastPos.lon, lat, lon);
+    if(route) destination.steps = route.steps;
+  }
+}
+
+setDestBtn.addEventListener('click', async () => {
+  const query = destInput.value.trim(); if(!query) return;
+  destSuggestionsEl.style.display = 'none';
   try{
-    const url = `https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}?overview=full&geometries=geojson&steps=true${alternative ? '&alternatives=true' : ''}`;
-    const res = await fetch(url); const data = await res.json();
-    if(data.routes && data.routes.length > 0){
-      const route = data.routes[alternative && data.routes.length > 1 ? 1 : 0];
-      const steps = route.legs[0].steps.map(s => ({ type: s.maneuver.type, modifier: s.maneuver.modifier, lat: s.maneuver.location[1], lon: s.maneuver.location[0], distance: s.distance, name: s.name }));
-      const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
-      return { distanceKm: route.distance / 1000, durationMin: route.duration / 60, steps, coords };
-    }
-  }catch(e){}
-  return null;
-}
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+    const results = await res.json();
+    if(!results.length){ destStatusEl.textContent = 'Jagah nahi mili.'; return; }
+    setDestination(parseFloat(results[0].lat), parseFloat(results[0].lon), results[0].display_name.split(',')[0]);
+  }catch(e){ destStatusEl.textContent = 'Error aayi.'; }
+});
 
-function updateTurnByTurn(lat, lon){
-  const steps = destination.steps; const idx = destination.currentStepIndex || 0;
-  if(idx + 1 >= steps.length){ navPanelEl.style.display = 'none'; return; }
-  const next = steps[idx + 1]; const distToNext = haversineKm(lat, lon, next.lat, next.lon) * 1000;
-  if(distToNext < 30){ destination.currentStepIndex = idx + 1; updateTurnByTurn(lat, lon); return; }
-  navPanelEl.style.display = 'flex';
-  navInstructionEl.textContent = next.name ? `Agla mod — ${next.name}` : 'Seedhe chaliye';
-  navDistanceEl.textContent = distToNext >= 1000 ? (distToNext/1000).toFixed(1) + ' km' : Math.round(distToNext) + ' m';
-}
-
-function updateMap(lat, lon, headingDeg){
-  try{
-    if(!map){
-      map = L.map('liveMap', { zoomControl: false, attributionControl: false }).setView([lat, lon], 16);
-      L.maplibreGL({ style: 'https://tiles.openfreemap.org/styles/bright' }).addTo(map);
-      marker = L.marker([lat, lon]).addTo(map);
-    } else {
-      marker.setLatLng([lat, lon]);
-    }
-    
-    if(liveMapEl && mapRotationMode && headingDeg !== null){
-      liveMapEl.style.transform = `translate(-50%,-50%) rotate(${-headingDeg}deg)`;
-    } else if(liveMapEl) {
-      liveMapEl.style.transform = 'translate(-50%,-50%) rotate(0deg)';
-    }
-
-    if(lastSpeedKmh > 0) map.setView([lat, lon], map.getZoom(), { animate: false });
-  }catch(e){}
-}
+clearDestBtn.addEventListener('click', () => {
+  destination = null; destInput.value = ''; destSuggestionsEl.style.display = 'none'; destStatusEl.textContent = ''; navPanelEl.style.display = 'none';
+  if(destMarker && map){ map.removeLayer(destMarker); destMarker = null; }
+  if(routeLine && map){ map.removeLayer(routeLine); routeLine = null; }
+});
 
 function handlePosition(pos){
   const { latitude, longitude, speed, heading } = pos.coords;
@@ -414,16 +515,8 @@ function handlePosition(pos){
   compassLabelEl.textContent = `${compassLabel(headingDeg)} · ${Math.round(headingDeg)}°`;
   
   updateMap(latitude, longitude, headingDeg);
-  if(destination && destination.steps) updateTurnByTurn(latitude, longitude);
-
-  if(lastHeading !== null && speedKmh > 20){
-    let turnDiff = Math.abs(((headingDeg - lastHeading + 540) % 360) - 180);
-    if(turnDiff > 45 && Date.now() - lastTurnSpoken > 25000){
-      lastTurnSpoken = Date.now();
-      speak('Aage tez mod hai, speed kam karein.');
-      setAlert('⚠️ Tez mod (Sharp Turn) aage hai!', 'warn');
-    }
-  }
+  updatePlaceName(latitude, longitude);
+  if(destination) updateTurnByTurn(latitude, longitude);
 
   if(speedKmh > speedLimit && Date.now() - lastOverspeedSpoken > 20000){
     lastOverspeedSpoken = Date.now();
@@ -453,7 +546,6 @@ rotateModeBtn.addEventListener('click', () => {
   rotateModeBtn.classList.toggle('on', mapRotationMode);
 });
 
-// Voice Command Handler
 talkBtn.addEventListener('click', () => {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SR){ setAiStatus('Voice support available nahi hai.'); return; }
@@ -461,40 +553,16 @@ talkBtn.addEventListener('click', () => {
   talkBtn.classList.add('listening'); talkBtn.textContent = '🎙️ Sun raha hoon...';
   
   recognition.onresult = async (event) => {
-    const transcript = event.results[event.results.length - 1][0].transcript;
-    handleUserQuery(transcript);
+    handleUserQuery(event.results[event.results.length - 1][0].transcript);
   };
-
   recognition.onend = () => { talkBtn.classList.remove('listening'); talkBtn.textContent = '🎤 Ya Bolkar Baat karein'; };
   try{ recognition.start(); }catch(e){ talkBtn.classList.remove('listening'); talkBtn.textContent = '🎤 Ya Bolkar Baat karein'; }
-});
-
-setDestBtn.addEventListener('click', async () => {
-  const query = destInput.value.trim(); if(!query) return;
-  destSuggestionsEl.style.display = 'none';
-  try{
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
-    const results = await res.json();
-    if(!results.length){ destStatusEl.textContent = 'Jagah nahi mili.'; return; }
-    const place = results[0];
-    destination = { lat: parseFloat(place.lat), lon: parseFloat(place.lon), name: place.display_name.split(',')[0] };
-    destStatusEl.textContent = `🎯 ${destination.name} set ho gaya!`;
-    speak(`${destination.name} set ho gaya.`);
-    if(lastPos){
-      const route = await getRouteWithSteps(lastPos.lat, lastPos.lon, destination.lat, destination.lon);
-      if(route) destination.steps = route.steps;
-    }
-  }catch(e){ destStatusEl.textContent = 'Error aayi.'; }
-});
-
-clearDestBtn.addEventListener('click', () => {
-  destination = null; destInput.value = ''; destSuggestionsEl.style.display = 'none'; destStatusEl.textContent = ''; navPanelEl.style.display = 'none';
 });
 
 document.getElementById('nearFuel').addEventListener('click', () => findNearby('node["amenity"="fuel"]', 'petrol pump'));
 document.getElementById('nearHotel').addEventListener('click', () => findNearby('node["tourism"="hotel"]', 'hotel'));
 document.getElementById('nearFood').addEventListener('click', () => findNearby('node["amenity"="restaurant"]', 'restaurant'));
-document.getElementById('nearAtm').addEventListener('click', () => findResponder('node["amenity"="atm"]', 'ATM'));
+document.getElementById('nearAtm').addEventListener('click', () => findNearby('node["amenity"="atm"]', 'ATM'));
 </script>
 </body>
 </html>
