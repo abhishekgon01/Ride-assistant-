@@ -506,7 +506,7 @@ function overpassQuery(q){
     lastOverpassError = '';
     OVERPASS_SERVERS.forEach((base) => {
       const ctrl = new AbortController(); ctrls.push(ctrl);
-      const timer = setTimeout(() => ctrl.abort(), 28000);
+      const timer = setTimeout(() => ctrl.abort(), 15000);
       fetch(base, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -549,7 +549,9 @@ async function executeNearbySearch(filterQuerySnippet, label, fallbackQueryText)
   let serversFailed = false;
   const radii = [4000, 12000, 30000, 60000];
   for(const r of radii){
-    const q = `[out:json][timeout:25];(${filterQuerySnippet}(around:${r},${lastPos.lat},${lastPos.lon}););out center qt 60;`;
+    const dLat = r / 111000, dLon = r / (111320 * Math.cos(toRad(lastPos.lat)));
+    const bbox = `${(lastPos.lat-dLat).toFixed(5)},${(lastPos.lon-dLon).toFixed(5)},${(lastPos.lat+dLat).toFixed(5)},${(lastPos.lon+dLon).toFixed(5)}`;
+    const q = `[out:json][timeout:12][bbox:${bbox}];(${filterQuerySnippet};);out center qt 100;`;
     let elements = await overpassQuery(q);
     if(elements === null){
       // ek baar 2 second baad dobara try (server busy ho sakta hai)
@@ -621,15 +623,15 @@ async function executeNearbySearch(filterQuerySnippet, label, fallbackQueryText)
 }
 
 const Q = {
-  fuel: 'nwr["amenity"="fuel"]',
-  hospital: 'nwr["amenity"="hospital"]',
+  fuel: 'nw["amenity"="fuel"]',
+  hospital: 'nw["amenity"="hospital"]',
   highway: 'way["highway"~"^(motorway|trunk)$"]',
-  tyre: 'nwr["shop"="tyre"]',
-  water: 'nwr["amenity"="drinking_water"]',
-  kirana: 'nwr["shop"~"^(convenience|supermarket|general)$"]',
-  snack: 'nwr["shop"="supermarket"]',
-  hotel: 'nwr["tourism"="hotel"]',
-  atm: 'nwr["amenity"="atm"]'
+  tyre: 'nw["shop"="tyre"]',
+  water: 'nw["amenity"="drinking_water"]',
+  kirana: 'nw["shop"~"^(convenience|supermarket|general)$"]',
+  snack: 'nw["shop"="supermarket"]',
+  hotel: 'nw["tourism"="hotel"]',
+  atm: 'nw["amenity"="atm"]'
 };
 
 async function handleUserQuery(text){
