@@ -493,12 +493,30 @@ async function findNearby(filterQuerySnippet, label, fallbackQueryText){
 
 const OVERPASS_SERVERS = [
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
+  'https://z.overpass-api.de/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
-  'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
+  'https://overpass.openstreetmap.fr/api/interpreter',
+  'https://overpass.osm.ch/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter'
 ];
 let lastOverpassError = '';
 let overpassDownUntil = 0;
+let lastNomCall = 0;
+async function nominatimNearby(term, d){
+  const wait = 1100 - (Date.now() - lastNomCall);
+  if(wait > 0) await new Promise(r => setTimeout(r, wait));
+  lastNomCall = Date.now();
+  try{
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(term)}&viewbox=${lastPos.lon-d},${lastPos.lat+d},${lastPos.lon+d},${lastPos.lat-d}&bounded=1&limit=10`;
+    const res = await fetch(url, { headers: { 'Accept-Language': 'hi,en' } });
+    const data = await res.json();
+    return (data || []).map(item => ({
+      name: item.display_name.split(',')[0],
+      lat: parseFloat(item.lat), lon: parseFloat(item.lon),
+      dist: haversineKm(lastPos.lat, lastPos.lon, parseFloat(item.lat), parseFloat(item.lon))
+    }));
+  }catch(e){ return []; }
+}
 
 // Photon: OSM tag ke hisaab se paas ki jagah (CORS-friendly)
 async function photonNearby(tags, rKm, label){
@@ -531,9 +549,10 @@ function overpassQuery(q){
     let pending = OVERPASS_SERVERS.length, done = false;
     const ctrls = [];
     lastOverpassError = '';
+    const errs = {};
     OVERPASS_SERVERS.forEach((base) => {
       const ctrl = new AbortController(); ctrls.push(ctrl);
-      const timer = setTimeout(() => ctrl.abort(), 9000);
+      const timer = setTimeout(() => ctrl.abort(), 12000);
       fetch(base, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -554,7 +573,9 @@ function overpassQuery(q){
       .catch((err) => {
         clearTimeout(timer);
         if(!done){
-          lastOverpassError = (err && err.name === 'AbortError') ? 'timeout' : (err && err.message) || 'error';
+          let host = base; try{ host = new URL(base).hostname; }catch(e){}
+          errs[host] = (err && err.name === 'AbortError') ? 'timeout' : ((err && err.message) || 'error');
+          lastOverpassError = Object.entries(errs).map(([h, e]) => h + ': ' + e).join('\n');
           if(--pending === 0){ done = true; resolve(null); }
         }
       });
@@ -593,40 +614,27 @@ async function executeNearbySearch(filterQuerySnippet, label, fallbackQueryText)
     }
   } else { serversFailed = true; }
 
-  // 2) Photon (doosra OSM source)
+  // 2) Photon + Nominatim: dono ke natije milakar sabse paas wala chuno
   if(mapped.length === 0){
+    setAiStatus(`Doosre map sources se ${label} dhoond raha hoon...`);
     const tags = PHOTON_TAGS[filterQuerySnippet];
-    if(tags){
-      setAiStatus(`Doosre map source se ${label} dhoond raha hoon...`);
-      for(const rKm of [5, 15, 40]){
-        const res = await photonNearby(tags, rKm, label);
-        if(res.length){ mapped = res; break; }
-      }
-    }
-  }
-
-  // 3) Nominatim (aakhri option)
-  if(mapped.length === 0 && fallbackQueryText){
-    for(const d of [0.05, 0.15, 0.4]){
-      try {
-        const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fallbackQueryText)}&viewbox=${lastPos.lon-d},${lastPos.lat+d},${lastPos.lon+d},${lastPos.lat-d}&bounded=1&limit=8`;
-        const nomRes = await fetch(nomUrl, { headers: { 'Accept-Language': 'hi,en' } });
-        const nomData = await nomRes.json();
-        if(nomData && nomData.length > 0){
-          mapped = nomData.map(item => ({
-            name: item.display_name.split(',')[0],
-            lat: parseFloat(item.lat), lon: parseFloat(item.lon),
-            dist: haversineKm(lastPos.lat, lastPos.lon, parseFloat(item.lat), parseFloat(item.lon))
-          })).sort((a,b) => a.dist - b.dist);
-          break;
-        }
-      }catch(e){}
+    const terms = NOM_TERMS[filterQuerySnippet] || (fallbackQueryText ? [fallbackQueryText] : []);
+    for(const [rKm, d] of [[8, 0.07], [25, 0.2], [60, 0.5]]){
+      let found = [];
+      if(tags) found = found.concat(await photonNearby(tags, rKm, label));
+      for(const term of terms){ found = found.concat(await nominatimNearby(term, d)); }
+      const seenKeys = new Set();
+      found = found.filter(f => {
+        const k = f.lat.toFixed(4) + ',' + f.lon.toFixed(4);
+        if(seenKeys.has(k)) return false; seenKeys.add(k); return true;
+      }).sort((x, y) => x.dist - y.dist);
+      if(found.length){ mapped = found; break; }
     }
   }
 
   if(mapped.length === 0){
     const msg = serversFailed
-      ? `Koi bhi map server abhi jawab nahi de raha (${lastOverpassError || 'unknown'}). Internet check karein ya 1 minute baad dobara try karein.`
+      ? `Paas mein ${label} nahi mila, aur map server (Overpass) bhi jawab nahi de raha:\n${lastOverpassError || 'unknown'}`
       : `60 km ke andar koi ${label} OpenStreetMap par nahi mila.`;
     setAiStatus(msg);
     speak(serversFailed ? 'Map server abhi jawab nahi de raha.' : `Aaspaas koi ${label} nahi mila.`);
@@ -683,6 +691,18 @@ const PHOTON_TAGS = {
   [Q.snack]: ['shop:supermarket'],
   [Q.hotel]: ['tourism:hotel'],
   [Q.atm]: ['amenity:atm']
+};
+
+const NOM_TERMS = {
+  [Q.fuel]: ['petrol pump', 'petrol station', 'fuel'],
+  [Q.hospital]: ['hospital'],
+  [Q.highway]: ['national highway', 'highway', 'expressway'],
+  [Q.tyre]: ['tyre', 'puncture', 'tyres'],
+  [Q.water]: ['drinking water', 'water'],
+  [Q.kirana]: ['kirana', 'supermarket', 'grocery'],
+  [Q.snack]: ['supermarket', 'sweets'],
+  [Q.hotel]: ['hotel'],
+  [Q.atm]: ['atm', 'bank atm']
 };
 
 async function handleUserQuery(text){
