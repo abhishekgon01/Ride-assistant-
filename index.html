@@ -210,6 +210,7 @@ let activeRouteData = null;
 let routeCoordsCache = [];
 let lastRerouteTime = 0;
 let routeRequestPending = false;
+let lastRouteAttempt = 0;
 let wakeLock = null;
 
 limitDownBtn.addEventListener('click', () => {
@@ -218,6 +219,13 @@ limitDownBtn.addEventListener('click', () => {
 limitUpBtn.addEventListener('click', () => {
   if(speedLimit < 150){ speedLimit += 5; limitValueEl.textContent = speedLimit; }
 });
+
+function fmtDuration(min){
+  min = Math.max(0, Math.round(min));
+  if(min < 60) return min + ' min';
+  const h = Math.floor(min / 60), m = min % 60;
+  return m === 0 ? h + ' hr' : h + ' hr ' + m + ' min';
+}
 
 function toRad(v){ return v * Math.PI / 180; }
 function haversineKm(lat1, lon1, lat2, lon2){
@@ -346,7 +354,7 @@ async function drawRoute(fromLat, fromLon, toLat, toLon, alternative=false){
     const durationMin = Math.round(route.duration / 60);
     activeRouteData = { distKm, durationMin, initialDistKm: distKm };
     destDistValEl.textContent = distKm >= 1 ? distKm.toFixed(1) + ' km' : Math.round(route.distance) + ' m';
-    destTimeValEl.textContent = durationMin >= 60 ? (durationMin/60).toFixed(1) + ' hrs' : durationMin + ' min';
+    destTimeValEl.textContent = fmtDuration(durationMin);
 
     const steps = route.legs[0].steps.map(s => ({
       type: s.maneuver.type, modifier: s.maneuver.modifier,
@@ -364,6 +372,9 @@ async function buildRouteForDestination(fromLat, fromLon, alternative=false){
   if(route && destination){
     destination.steps = route.steps;
     destination.currentStepIndex = 0;
+    if(!alternative) destStatusEl.textContent = `🎯 ${destination.name} set ho gaya!`;
+  } else if(!route && !alternative){
+    destStatusEl.textContent = '⚠️ Route nahi ban paya. Internet check karein, thodi der mein dobara try hoga.';
   }
   return route;
 }
@@ -620,8 +631,19 @@ async function setDestination(lat, lon, name){
   }
   if(lastPos){
     await buildRouteForDestination(lastPos.lat, lastPos.lon);
+  } else if('geolocation' in navigator){
+    destStatusEl.textContent = '📡 Aapki location dhoond raha hoon, route banane ke liye...';
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      lastPos = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+      initMap(lastPos.lat, lastPos.lon);
+      if(destination && destMarker === null){
+        destMarker = L.marker([destination.lat, destination.lon]).addTo(map).bindPopup(destination.name);
+      }
+      await buildRouteForDestination(lastPos.lat, lastPos.lon);
+    }, () => {
+      destStatusEl.textContent = '⚠️ Location nahi mili. Location permission dein (HTTPS zaroori hai) ya Start Ride dabayein.';
+    }, { enableHighAccuracy: true, timeout: 15000 });
   }
-  // lastPos nahi hai to pehle GPS fix par handlePosition route bana dega
 }
 
 setDestBtn.addEventListener('click', async () => {
@@ -677,7 +699,7 @@ function handlePosition(pos){
     if(activeRouteData && activeRouteData.initialDistKm > 0){
       const ratio = Math.max(0, Math.min(1, remDist / activeRouteData.initialDistKm));
       const remMin = Math.round(activeRouteData.durationMin * ratio);
-      destTimeValEl.textContent = remMin >= 60 ? (remMin/60).toFixed(1) + ' hrs' : remMin + ' min';
+      destTimeValEl.textContent = fmtDuration(remMin);
 
       // Off-route (100 m+) hone par, 30 second cooldown ke saath re-route
       if(routeCoordsCache.length > 1 && Date.now() - lastRerouteTime > 30000){
@@ -689,11 +711,12 @@ function handlePosition(pos){
     } else {
       if(speedKmh > 5){
         const remMin = Math.round((remDist / speedKmh) * 60);
-        destTimeValEl.textContent = remMin >= 60 ? (remMin/60).toFixed(1) + ' hrs' : remMin + ' min';
+        destTimeValEl.textContent = fmtDuration(remMin);
       }
       // Destination pehle set hui thi, ab GPS mila to route banao
-      if(!routeRequestPending){
+      if(!routeRequestPending && Date.now() - lastRouteAttempt > 15000){
         routeRequestPending = true;
+        lastRouteAttempt = Date.now();
         buildRouteForDestination(latitude, longitude).finally(() => { routeRequestPending = false; });
       }
     }
