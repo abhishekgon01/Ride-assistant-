@@ -7,7 +7,6 @@
 <meta name="theme-color" content="#0E1218">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet">
 <style>
 :root{ --bg:#0E1218; --panel:#171D27; --panel-2:#1D2531; --line:#2A3444; --text:#EDEFF3; --text-dim:#8B96A5; --amber:#F5A623; --teal:#2DD4BF; --coral:#FF5A5A; }
@@ -63,6 +62,17 @@ body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; m
 .stepper span{ font-family:'Space Grotesk',sans-serif; font-size:15px; font-weight:600; min-width:38px; text-align:center; }
 .toggle-btn{ border:1px solid var(--line); background:var(--panel-2); color:var(--text-dim); border-radius:20px; padding:6px 14px; font-size:12.5px; font-weight:600; cursor:pointer; }
 .toggle-btn.on{background:rgba(45,212,191,0.15); border-color:var(--teal); color:var(--teal);}
+
+.trip-item{ background:var(--panel-2); border:1px solid var(--line); border-radius:12px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; }
+.trip-item .t-top{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+.trip-item .t-dist{ font-family:'Space Grotesk',sans-serif; font-size:17px; font-weight:700; color:var(--teal); }
+.trip-item .t-date{ font-size:12px; color:var(--text-dim); }
+.trip-item .t-meta{ font-size:12.5px; color:var(--text); }
+.trip-item .t-place{ font-size:12px; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.trip-item .t-actions{ display:flex; gap:6px; }
+.t-btn{ flex:1; border:1px solid var(--line); background:var(--panel); color:var(--text); border-radius:8px; padding:7px 4px; font-size:11.5px; cursor:pointer; }
+.cam-marker{ font-size:20px; line-height:1; filter:drop-shadow(0 1px 2px rgba(0,0,0,.6)); cursor:pointer; }
+.maplibregl-ctrl-attrib{ font-size:10px; }
 </style>
 </head>
 <body>
@@ -108,12 +118,30 @@ body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; m
       <div class="panel-title" style="margin-bottom:0;">📍 Live Map</div>
       <div style="display:flex; gap:5px;">
         <button id="recenterBtn" class="toggle-btn on" style="font-size:10px; padding:4px 6px;">🎯 My Loc</button>
+        <button id="rotateModeBtn" class="toggle-btn on" style="font-size:10px; padding:4px 6px;">🧭 Ghoomta Map</button>
       </div>
     </div>
-    <div id="mapContainer" style="height:200px; border-radius:12px; overflow:hidden; background:var(--panel-2); position:relative; z-index:1;">
+    <div id="mapContainer" style="height:260px; border-radius:12px; overflow:hidden; background:var(--panel-2); position:relative; z-index:1;">
       <div id="liveMap" style="width:100%; height:100%;"></div>
     </div>
     <div class="ai-status" id="placeNameText" style="margin-top:6px; font-weight:600; color:var(--teal);">Location track karne ke liye "Start Ride" dabayein.</div>
+  </div>
+
+  <div class="panel" id="weatherPanel">
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <div class="panel-title">🌦️ Live Mausam</div>
+      <button id="weatherRefreshBtn" class="toggle-btn" style="font-size:10px; padding:4px 8px;">🔄 Refresh</button>
+    </div>
+    <div style="display:flex; align-items:center; gap:14px;">
+      <div id="weatherIcon" style="font-size:44px; line-height:1;">🌡️</div>
+      <div style="flex:1;">
+        <div id="weatherTemp" style="font-family:'Space Grotesk',sans-serif; font-size:26px; font-weight:700; color:var(--amber);">--</div>
+        <div class="ai-status" id="weatherDesc">Refresh dabakar mausam dekhein.</div>
+      </div>
+    </div>
+    <div class="ai-status" id="weatherMeta"></div>
+    <div class="alert-bar" id="weatherAdvice" style="margin-bottom:0; display:none; white-space:pre-line;"></div>
+    <div class="ai-status" id="weatherDest"></div>
   </div>
 
   <div class="panel">
@@ -152,6 +180,29 @@ body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; m
     <div class="ai-status" id="aiStatus" style="margin-top:8px;"></div>
   </div>
 
+  <div class="panel">
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <div class="panel-title">📷 Speed Camera Alert</div>
+      <button id="camToggleBtn" class="toggle-btn on">ON</button>
+    </div>
+    <div class="ai-status" id="camStatus">Start Ride dabane par aaspaas ke cameras apne aap load honge.</div>
+    <div class="sos-buttons">
+      <button id="camAddBtn" class="sos-btn share">➕ Yahan camera jodein</button>
+      <button id="camClearBtn" class="sos-btn" style="background:var(--panel-2); color:var(--text-dim); border:1px solid var(--line);">Meri cams hatao</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <div class="panel-title">🗂️ Trip History</div>
+      <button id="tripMapClearBtn" class="toggle-btn" style="font-size:10px; padding:4px 8px;">🧹 Map saaf</button>
+    </div>
+    <div class="ai-status" id="liveTripText" style="white-space:pre-line;">Ride shuru karne par trip apne aap record hogi aur Stop dabane par save ho jayegi.</div>
+    <div class="ai-status" id="tripTotals" style="font-weight:600; color:var(--teal);"></div>
+    <div id="tripList" style="display:flex; flex-direction:column; gap:8px; max-height:340px; overflow-y:auto;"></div>
+    <button id="tripClearAllBtn" class="sos-btn" style="flex:none; background:var(--panel-2); color:var(--coral); border:1px solid var(--line); display:none;">🗑️ Saari trips hatao</button>
+  </div>
+
   <div class="controls">
     <button id="startBtn" class="btn-primary">Start Ride</button>
     <div class="control-row">
@@ -165,9 +216,7 @@ body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; m
   </div>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
-<script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet/leaflet-maplibre-gl.js"></script>
 <script>
 const speedValueEl = document.getElementById('speedValue');
 const needleEl = document.getElementById('needle');
@@ -198,6 +247,23 @@ const btnTrafficJam = document.getElementById('btnTrafficJam');
 const destDistValEl = document.getElementById('destDistVal');
 const destTimeValEl = document.getElementById('destTimeVal');
 const tripDistanceEl = document.getElementById('tripDistance');
+const rotateModeBtn = document.getElementById('rotateModeBtn');
+const weatherRefreshBtn = document.getElementById('weatherRefreshBtn');
+const weatherIconEl = document.getElementById('weatherIcon');
+const weatherTempEl = document.getElementById('weatherTemp');
+const weatherDescEl = document.getElementById('weatherDesc');
+const weatherMetaEl = document.getElementById('weatherMeta');
+const weatherAdviceEl = document.getElementById('weatherAdvice');
+const weatherDestEl = document.getElementById('weatherDest');
+const camToggleBtn = document.getElementById('camToggleBtn');
+const camStatusEl = document.getElementById('camStatus');
+const camAddBtn = document.getElementById('camAddBtn');
+const camClearBtn = document.getElementById('camClearBtn');
+const liveTripEl = document.getElementById('liveTripText');
+const tripTotalsEl = document.getElementById('tripTotals');
+const tripListEl = document.getElementById('tripList');
+const tripClearAllBtn = document.getElementById('tripClearAllBtn');
+const tripMapClearBtn = document.getElementById('tripMapClearBtn');
 
 let tracking = false; let watchId = null; let speedLimit = 60;
 let hindi = true; let lastPos = null; let lastSpeedKmh = 0; let tripDistanceKm = 0;
@@ -214,6 +280,29 @@ let lastRouteAttempt = 0;
 let lastPosApprox = false;
 let nearbyLayer = null;
 let wakeLock = null;
+
+// ----- naya state (rotating map, weather, cameras, trips) -----
+let mapRotationMode = true; let mapFailed = false;
+let bikeMarker = null; let bikeArrowEl = null; let destMapMarker = null;
+let nearbyMarkers = []; let camMarkers = [];
+let routeGeo = lineData([]); let tripGeo = lineData([]);
+const STYLE_DARK = 'https://tiles.openfreemap.org/styles/liberty';
+const STYLE_LIGHT = 'https://tiles.openfreemap.org/styles/bright';
+
+function loadJSON(key, fallback){ try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }catch(e){ return fallback; } }
+function saveJSON(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); return true; }catch(e){ return false; } }
+function speakClean(text){ speak(String(text).replace(/[^\p{L}\p{N}\s.,:%°\-]/gu, ' ')); }
+
+let speedCamOn = loadJSON('rideCamOn', true);
+let speedCams = []; let customCams = loadJSON('rideCustomCams', []);
+let camFetching = false; let lastCamFetch = { lat: null, lon: null, time: 0, ok: false };
+const camAlerted = new Map();
+
+let lastWeather = { time: 0, lat: null, lon: null }; let weatherBusy = false; let lastWeatherData = null;
+const spokenWeatherWarn = new Set();
+
+let currentTrip = null; let tripTimer = null; let lastCheckpoint = 0;
+let trips = loadJSON('rideTrips', []);
 
 limitDownBtn.addEventListener('click', () => {
   if(speedLimit > 10){ speedLimit -= 5; limitValueEl.textContent = speedLimit; }
@@ -280,14 +369,8 @@ function fnSetTheme(dark){
   isDarkMode = dark;
   document.body.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
   themeToggle.textContent = isDarkMode ? '🌙 Night Mode' : '☀️ Day Mode';
-
   if(map){
-    const styleUrl = isDarkMode ? 'https://tiles.openfreemap.org/styles/liberty' : 'https://tiles.openfreemap.org/styles/bright';
-    try {
-      if(maplibreLayer) map.removeLayer(maplibreLayer);
-      maplibreLayer = L.maplibreGL({ style: styleUrl }).addTo(map);
-      if(marker) marker.bringToFront();
-    } catch(e){}
+    try{ map.setStyle(currentStyleUrl(), { diff: false }); }catch(e){}
   }
 }
 
@@ -306,7 +389,9 @@ async function updatePlaceName(lat, lon){
     const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`, { headers: { 'Accept-Language': 'hi' } });
     const data = await res.json();
     if(data && data.display_name){
-      placeNameTextEl.textContent = `📍 ${data.display_name.split(',').slice(0, 3).join(',')}`;
+      const shortName = data.display_name.split(',').slice(0, 3).join(',');
+      placeNameTextEl.textContent = `📍 ${shortName}`;
+      if(currentTrip){ if(!currentTrip.startPlace) currentTrip.startPlace = shortName; currentTrip.endPlace = shortName; }
     }
   }catch(e){}
 }
@@ -347,10 +432,8 @@ async function drawRoute(fromLat, fromLon, toLat, toLon, alternative=false){
     const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
     routeCoordsCache = coords;
 
-    if(map){
-      if(routeLine) map.removeLayer(routeLine);
-      routeLine = L.polyline(coords, { color: '#2DD4BF', weight: 5, opacity: 0.8 }).addTo(map);
-    }
+    setRouteLine(coords);
+    if(!tracking && !alternative){ forceCenterOnNextUpdate = false; fitCoords(coords); }
 
     const distKm = route.distance / 1000;
     const durationMin = Math.round(route.duration / 60);
@@ -415,29 +498,458 @@ function updateTurnByTurn(lat, lon){
   navDistanceEl.textContent = distToNext >= 1000 ? (distToNext/1000).toFixed(1) + ' km' : Math.round(distToNext) + ' m';
 }
 
-function initMap(lat, lon){
-  if(map) return;
-  map = L.map('liveMap', { zoomControl: false, attributionControl: false }).setView([lat, lon], 16);
-  const styleUrl = isDarkMode ? 'https://tiles.openfreemap.org/styles/liberty' : 'https://tiles.openfreemap.org/styles/bright';
-  maplibreLayer = L.maplibreGL({ style: styleUrl }).addTo(map);
-  const bikeIcon = L.divIcon({
-    className: 'bike-marker',
-    html: `<div style="font-size:28px; transform:translate(-14px, -14px);">🏍️</div>`,
-    iconSize: [28, 28], iconAnchor: [14, 14]
-  });
-  marker = L.marker([lat, lon], { icon: bikeIcon }).addTo(map);
-  map.on('dragstart', () => { forceCenterOnNextUpdate = false; });
+// ================= MAP (MapLibre GL, rotating) =================
+function currentStyleUrl(){ return isDarkMode ? STYLE_DARK : STYLE_LIGHT; }
+function lineData(coords){
+  if(!coords || coords.length < 2) return { type: 'FeatureCollection', features: [] };
+  return { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords.map(c => [c[1], c[0]]) } };
+}
+function addCustomLayers(){
+  if(!map) return;
+  try{
+    if(!map.getSource('route')) map.addSource('route', { type: 'geojson', data: routeGeo });
+    if(!map.getSource('trip')) map.addSource('trip', { type: 'geojson', data: tripGeo });
+    const lay = { 'line-cap': 'round', 'line-join': 'round' };
+    if(!map.getLayer('route-casing')) map.addLayer({ id: 'route-casing', type: 'line', source: 'route', layout: lay, paint: { 'line-color': '#06302b', 'line-width': 9, 'line-opacity': 0.55 } });
+    if(!map.getLayer('route-line')) map.addLayer({ id: 'route-line', type: 'line', source: 'route', layout: lay, paint: { 'line-color': '#2DD4BF', 'line-width': 5, 'line-opacity': 0.9 } });
+    if(!map.getLayer('trip-line')) map.addLayer({ id: 'trip-line', type: 'line', source: 'trip', layout: lay, paint: { 'line-color': '#F5A623', 'line-width': 4, 'line-opacity': 0.9 } });
+  }catch(e){}
+}
+function setRouteLine(coords){
+  routeGeo = lineData(coords);
+  if(!map) return;
+  try{ const src = map.getSource('route'); if(src) src.setData(routeGeo); else addCustomLayers(); }catch(e){}
+}
+function setTripLine(coords){
+  tripGeo = lineData(coords);
+  if(!map) return;
+  try{ const src = map.getSource('trip'); if(src) src.setData(tripGeo); else addCustomLayers(); }catch(e){}
+}
+function fitCoords(coords){
+  if(!map || !coords || coords.length < 2) return;
+  try{
+    const b = new maplibregl.LngLatBounds();
+    coords.forEach(c => b.extend([c[1], c[0]]));
+    map.fitBounds(b, { padding: 30, duration: 800, bearing: 0, maxZoom: 17 });
+  }catch(e){}
+}
+function setArrow(deg){ if(bikeArrowEl) bikeArrowEl.style.transform = `rotate(${deg}deg)`; }
+
+function setDestMarker(lat, lon, name){
+  if(!map) return;
+  try{
+    if(destMapMarker) destMapMarker.remove();
+    destMapMarker = new maplibregl.Marker({ color: '#FF5A5A' }).setLngLat([lon, lat])
+      .setPopup(new maplibregl.Popup({ offset: 25 }).setText(name)).addTo(map);
+  }catch(e){}
+}
+function clearNearbyMarkers(){ nearbyMarkers.forEach(m => { try{ m.remove(); }catch(e){} }); nearbyMarkers = []; }
+function addNearbyMarker(u){
+  if(!map) return;
+  try{
+    const el = document.createElement('div');
+    el.style.cssText = 'width:16px;height:16px;border-radius:50%;background:#F5A623;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.6);cursor:pointer;';
+    const m = new maplibregl.Marker({ element: el }).setLngLat([u.lon, u.lat])
+      .setPopup(new maplibregl.Popup({ offset: 12 }).setText(`${u.name} — ${fmtDist(u.dist)}`)).addTo(map);
+    nearbyMarkers.push(m);
+  }catch(e){}
 }
 
-function updateMap(lat, lon){
+function initMap(lat, lon){
+  if(map || mapFailed) return;
+  try{
+    map = new maplibregl.Map({
+      container: 'liveMap', style: currentStyleUrl(), center: [lon, lat], zoom: 16,
+      attributionControl: { compact: true }
+    });
+    map.on('style.load', addCustomLayers);
+    map.on('dragstart', (e) => { if(e && e.originalEvent) forceCenterOnNextUpdate = false; });
+
+    const el = document.createElement('div');
+    el.style.cssText = 'width:36px;height:36px;';
+    el.innerHTML = '<svg viewBox="0 0 24 24" width="36" height="36" style="transition:transform .3s; filter:drop-shadow(0 1px 3px rgba(0,0,0,.6));"><circle cx="12" cy="12" r="10.5" fill="#0E1218" stroke="#2DD4BF" stroke-width="1.5"/><path d="M12 4 L17 17.5 L12 14.8 L7 17.5 Z" fill="#F5A623"/></svg>';
+    bikeArrowEl = el.firstChild;
+    bikeMarker = new maplibregl.Marker({ element: el }).setLngLat([lon, lat]).addTo(map);
+
+    renderCamMarkers();
+    if(destination) setDestMarker(destination.lat, destination.lon, destination.name);
+  }catch(err){
+    map = null; mapFailed = true;
+    const box = document.getElementById('liveMap');
+    if(box){ box.textContent = 'Map nahi chal paya (WebGL ya internet chahiye). Baaki sab features chalte rahenge.'; box.style.cssText += 'display:flex;align-items:center;justify-content:center;text-align:center;padding:14px;font-size:13px;color:var(--text-dim);'; }
+  }
+}
+
+function updateMap(lat, lon, headingDeg, speedKmh){
   try{
     if(!map){ initMap(lat, lon); return; }
-    marker.setLatLng([lat, lon]);
+    if(bikeMarker) bikeMarker.setLngLat([lon, lat]);
+    setArrow(mapRotationMode ? 0 : headingDeg);
     if(forceCenterOnNextUpdate){
-      map.setView([lat, lon], map.getZoom(), { animate: false });
+      const o = { center: [lon, lat], duration: 900, essential: true };
+      if(mapRotationMode && speedKmh >= 4 && headingDeg != null) o.bearing = headingDeg;
+      map.easeTo(o);
     }
   }catch(e){}
 }
+
+// ================= WEATHER (Open-Meteo) =================
+const WMO = {
+  0:['☀️','Saaf aasman'], 1:['🌤️','Zyadatar saaf'], 2:['⛅','Halke baadal'], 3:['☁️','Baadal chhaye'],
+  45:['🌫️','Kohra'], 48:['🌫️','Kohra'],
+  51:['🌦️','Halki boondabandi'], 53:['🌦️','Boondabandi'], 55:['🌧️','Tez boondabandi'], 56:['🌧️','Thandi boondabandi'], 57:['🌧️','Thandi boondabandi'],
+  61:['🌧️','Halki baarish'], 63:['🌧️','Baarish'], 65:['🌧️','Tez baarish'], 66:['🌧️','Thandi baarish'], 67:['🌧️','Thandi baarish'],
+  71:['❄️','Halki barfbari'], 73:['❄️','Barfbari'], 75:['❄️','Tez barfbari'], 77:['❄️','Barf ke daane'],
+  80:['🌦️','Halki bauchhar'], 81:['🌧️','Bauchhar'], 82:['⛈️','Bahut tez bauchhar'], 85:['❄️','Barf ki bauchhar'], 86:['❄️','Barf ki bauchhar'],
+  95:['⛈️','Aandhi-tufan'], 96:['⛈️','Tufan aur ole'], 99:['⛈️','Tufan aur ole']
+};
+function wmo(code){ return WMO[code] || ['🌡️', 'Mausam']; }
+
+async function fetchWeatherData(lat, lon){
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,is_day&hourly=precipitation_probability&forecast_days=2&timezone=auto`;
+  const ctrl = new AbortController(); const timer = setTimeout(() => ctrl.abort(), 12000);
+  const res = await fetch(url, { signal: ctrl.signal });
+  clearTimeout(timer);
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  const d = await res.json();
+  const c = d.current; if(!c) throw new Error('no data');
+  let rainNext = null;
+  try{
+    const h = d.hourly; const i = h.time.findIndex(t => t >= c.time.slice(0, 13));
+    if(i >= 0){ const vals = h.precipitation_probability.slice(i, i + 3).filter(v => v != null); if(vals.length) rainNext = Math.max(...vals); }
+  }catch(e){}
+  return { temp: c.temperature_2m, feels: c.apparent_temperature, hum: c.relative_humidity_2m, wind: c.wind_speed_10m, code: c.weather_code, precip: c.precipitation || 0, rainNext };
+}
+
+function weatherWarnings(w){
+  const out = []; const code = w.code;
+  if(code >= 95) out.push(['storm', '⚠️ Aandhi-tufan ya bijli ka khatra hai. Surakshit jagah par ruk jayein.']);
+  else if((code >= 61 && code <= 67) || (code >= 80 && code <= 82) || w.precip > 0.2) out.push(['rain', '🌧️ Baarish hai. Road fisalan wali hogi, speed kam rakhein aur brake dheere lagayein.']);
+  else if(code >= 51 && code <= 57) out.push(['drizzle', '🌦️ Boondabandi hai. Road geeli ho sakti hai, dhyan se chalayein.']);
+  else if(w.rainNext != null && w.rainNext >= 60) out.push(['rainsoon', `🌦️ Agle 3 ghante mein baarish ke ${w.rainNext}% chance hain. Raincoat saath rakhein.`]);
+  if(code === 45 || code === 48) out.push(['fog', '🌫️ Kohra hai. Visibility kam hai, headlight on rakhein aur dheere chalein.']);
+  if(code >= 71 && code <= 77) out.push(['snow', '❄️ Barfbari hai. Road par phislan ka khatra hai.']);
+  if(w.feels >= 40) out.push(['heat', '🥵 Bahut garmi hai. Paani peete rahein aur beech mein rukein.']);
+  if(w.temp <= 8) out.push(['cold', '🥶 Thand hai. Garam kapde pehnein, haath thande ho sakte hain.']);
+  if(w.wind >= 35) out.push(['wind', '💨 Tez hawa chal rahi hai. Bike ko sambhal kar chalayein.']);
+  return out;
+}
+
+function renderWeather(w){
+  const [ic, ds] = wmo(w.code);
+  weatherIconEl.textContent = ic;
+  weatherTempEl.textContent = `${Math.round(w.temp)}°C`;
+  weatherDescEl.textContent = `${ds} · Mehsoos ${Math.round(w.feels)}°C` + (lastPosApprox ? ' (approx location)' : '');
+  weatherMetaEl.textContent = `💧 Nami ${Math.round(w.hum)}% · 💨 Hawa ${Math.round(w.wind)} km/h` + (w.rainNext != null ? ` · 🌧️ Agle 3 ghante mein baarish ke chance ${w.rainNext}%` : '');
+  const warns = weatherWarnings(w);
+  if(warns.length){
+    weatherAdviceEl.style.display = '';
+    weatherAdviceEl.textContent = warns.map(x => x[1]).join('\n');
+    weatherAdviceEl.className = 'alert-bar warn';
+  } else {
+    weatherAdviceEl.style.display = 'none';
+  }
+  if(tracking){
+    const fresh = warns.find(x => !spokenWeatherWarn.has(x[0]));
+    if(fresh){ spokenWeatherWarn.add(fresh[0]); speakClean(fresh[1]); }
+  }
+}
+
+async function maybeUpdateWeather(force = false){
+  if(!lastPos || weatherBusy) return;
+  const age = Date.now() - lastWeather.time;
+  const moved = lastWeather.lat == null ? Infinity : haversineKm(lastWeather.lat, lastWeather.lon, lastPos.lat, lastPos.lon);
+  if(!force && age < 10 * 60 * 1000 && moved < 15) return;
+  weatherBusy = true;
+  const { lat, lon } = lastPos;
+  try{
+    const w = await fetchWeatherData(lat, lon);
+    lastWeatherData = w; lastWeather = { time: Date.now(), lat, lon };
+    renderWeather(w);
+  }catch(e){
+    lastWeather.time = Date.now() - 8 * 60 * 1000;  // ~2 min baad dobara try
+    if(!lastWeatherData) weatherDescEl.textContent = 'Mausam abhi load nahi hua. Internet check karein, Refresh dabayein.';
+  }
+  weatherBusy = false;
+}
+
+async function updateDestWeather(){
+  if(!destination){ weatherDestEl.textContent = ''; return; }
+  const d = destination;
+  try{
+    const w = await fetchWeatherData(d.lat, d.lon);
+    if(destination !== d) return;
+    const [ic, ds] = wmo(w.code);
+    weatherDestEl.textContent = `📍 Manzil (${d.name}) par: ${ic} ${Math.round(w.temp)}°C, ${ds}` + (w.rainNext != null ? ` · baarish ke chance ${w.rainNext}%` : '');
+  }catch(e){}
+}
+
+async function speakWeather(){
+  setAiStatus('Mausam dekh raha hoon...');
+  const ok = await ensureLocation();
+  if(!ok){ const r = 'Location nahi mili, mausam nahi bata sakta.'; setAiStatus(r); speak(r); return; }
+  await maybeUpdateWeather(true);
+  if(!lastWeatherData){ const r = 'Mausam abhi nahi mil paya.'; setAiStatus(r); speak(r); return; }
+  const w = lastWeatherData; const [ic, ds] = wmo(w.code);
+  let r = `Abhi ${ds}, temperature ${Math.round(w.temp)} degree, hawa ${Math.round(w.wind)} kilometer prati ghanta.`;
+  if(w.rainNext != null) r += ` Agle teen ghante mein baarish ka chance ${w.rainNext} percent.`;
+  setAiStatus(`${ic} ${r}`); speak(r);
+}
+
+weatherRefreshBtn.addEventListener('click', async () => {
+  weatherDescEl.textContent = 'Mausam load ho raha hai...';
+  const ok = await ensureLocation();
+  if(!ok){ weatherDescEl.textContent = 'Location nahi mili. Location permission dein.'; return; }
+  await maybeUpdateWeather(true);
+  updateDestWeather();
+});
+
+// ================= SPEED CAMERAS =================
+async function photonCams(lat, lon, rKm){
+  try{
+    const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 8000);
+    const res = await fetch(`https://photon.komoot.io/reverse?lon=${lon}&lat=${lat}&radius=${rKm}&limit=50&osm_tag=highway:speed_camera`, { signal: ctrl.signal });
+    clearTimeout(t);
+    if(!res.ok) return [];
+    const data = await res.json();
+    return (data.features || []).map(f => {
+      const c = f.geometry && f.geometry.coordinates; if(!c) return null;
+      return { id: 'p' + c[1].toFixed(5) + ',' + c[0].toFixed(5), lat: c[1], lon: c[0], maxspeed: null };
+    }).filter(Boolean);
+  }catch(e){ return []; }
+}
+
+async function fetchSpeedCams(lat, lon){
+  if(camFetching) return;
+  camFetching = true;
+  let ok = false; let found = [];
+  try{
+    if(Date.now() > overpassDownUntil){
+      const r = 6000;
+      const dLat = r / 111000, dLon = r / (111320 * Math.cos(toRad(lat)));
+      const bbox = `${(lat-dLat).toFixed(5)},${(lon-dLon).toFixed(5)},${(lat+dLat).toFixed(5)},${(lon+dLon).toFixed(5)}`;
+      const q = `[out:json][timeout:10][bbox:${bbox}];(node["highway"="speed_camera"];node["enforcement"="maxspeed"];);out 150;`;
+      const els = await overpassQuery(q);
+      if(els === null){ overpassDownUntil = Date.now() + 2 * 60 * 1000; }
+      else {
+        ok = true;
+        found = els.filter(e => e.lat != null && e.lon != null).map(e => ({
+          id: 'osm' + e.id, lat: e.lat, lon: e.lon,
+          maxspeed: parseInt(e.tags && e.tags.maxspeed) || null
+        }));
+      }
+    }
+    if(!ok){
+      const ph = await photonCams(lat, lon, 6);
+      if(ph.length){ ok = true; found = ph; }
+    }
+  }catch(e){}
+  lastCamFetch = { lat, lon, time: Date.now(), ok };
+  speedCams = found.concat(customCams);
+  camFetching = false;
+  renderCamMarkers();
+  updateCamStatus(ok);
+}
+
+function maybeFetchCams(lat, lon){
+  if(!speedCamOn || camFetching) return;
+  const sinceMs = Date.now() - lastCamFetch.time;
+  const interval = lastCamFetch.ok ? 15 * 60 * 1000 : 120 * 1000;
+  const moved = lastCamFetch.lat == null ? Infinity : haversineKm(lastCamFetch.lat, lastCamFetch.lon, lat, lon);
+  if((moved > 3 && sinceMs > 60 * 1000) || sinceMs > interval) fetchSpeedCams(lat, lon);
+}
+
+function updateCamStatus(ok){
+  if(!speedCamOn){ camStatusEl.textContent = '📷 Camera alert band hai.'; return; }
+  const n = speedCams.length, my = customCams.length;
+  if(n > 0) camStatusEl.textContent = `📷 ${n} camera mile` + (my ? ` (jinme ${my} aapke jode hue)` : '') + '. Paas aane par voice alert aayega.';
+  else if(ok === false) camStatusEl.textContent = '⚠️ Camera data load nahi hua (server dikkat). Thodi der mein dobara try hoga.';
+  else camStatusEl.textContent = 'Is ilake mein OpenStreetMap par koi speed camera darj nahi hai. "Yahan camera jodein" se aap khud jod sakte hain.';
+}
+
+function renderCamMarkers(){
+  camMarkers.forEach(m => { try{ m.remove(); }catch(e){} }); camMarkers = [];
+  if(!map || !speedCamOn) return;
+  speedCams.slice(0, 200).forEach(c => {
+    try{
+      const el = document.createElement('div'); el.className = 'cam-marker'; el.textContent = '📷';
+      camMarkers.push(new maplibregl.Marker({ element: el }).setLngLat([c.lon, c.lat]).addTo(map));
+    }catch(e){}
+  });
+}
+
+function checkSpeedCams(lat, lon, headingDeg, speedKmh){
+  if(!speedCamOn || speedCams.length === 0 || speedKmh < 5) return;
+  const now = Date.now();
+  const alertDist = Math.max(300, Math.min(800, speedKmh * 8));
+  for(const c of speedCams){
+    const dM = haversineKm(lat, lon, c.lat, c.lon) * 1000;
+    if(dM > alertDist) continue;
+    const diff = Math.abs(((bearing(lat, lon, c.lat, c.lon) - headingDeg + 540) % 360) - 180);
+    if(dM > 60 && diff > 60) continue;          // peeche ya side mein hai
+    if(now - (camAlerted.get(c.id) || 0) < 10 * 60 * 1000) continue;
+    camAlerted.set(c.id, now);
+    const r = Math.max(10, Math.round(dM / 10) * 10);
+    const lim = c.maxspeed ? ` Limit ${c.maxspeed} km/h.` : '';
+    setAlert(`📷 Speed camera ${r} m aage!${lim}`, 'warn');
+    speak(`Aage speed camera hai, ${r} meter door.${c.maxspeed ? ' Limit ' + c.maxspeed + ' kilometer prati ghanta.' : ''} Speed kam karein.`);
+    break;
+  }
+}
+
+camToggleBtn.addEventListener('click', () => {
+  speedCamOn = !speedCamOn; saveJSON('rideCamOn', speedCamOn);
+  camToggleBtn.textContent = speedCamOn ? 'ON' : 'OFF';
+  camToggleBtn.classList.toggle('on', speedCamOn);
+  renderCamMarkers(); updateCamStatus(lastCamFetch.ok);
+  if(speedCamOn && lastPos) fetchSpeedCams(lastPos.lat, lastPos.lon);
+});
+camAddBtn.addEventListener('click', () => {
+  if(!lastPos){ setAlert('Pehle "Start Ride" dabayein, phir camera jodein.', 'warn'); return; }
+  if(lastPosApprox){ setAlert('Approx location par camera na jodein. GPS on karke Start Ride dabayein.', 'warn'); return; }
+  const c = { id: 'c' + Date.now(), lat: lastPos.lat, lon: lastPos.lon, maxspeed: null, custom: true };
+  customCams.push(c); saveJSON('rideCustomCams', customCams);
+  speedCams.push(c); camAlerted.set(c.id, Date.now());
+  renderCamMarkers(); updateCamStatus(true);
+  setAlert('📷 Camera yahin jud gaya. Agli baar paas aane par alert aayega.', 'ok');
+});
+camClearBtn.addEventListener('click', () => {
+  if(!customCams.length){ setAlert('Aapne koi camera nahi joda hai.'); return; }
+  if(!confirm('Aapke jode hue saare cameras hata dein?')) return;
+  customCams = []; saveJSON('rideCustomCams', customCams);
+  speedCams = speedCams.filter(c => !c.custom);
+  renderCamMarkers(); updateCamStatus(lastCamFetch.ok);
+});
+camToggleBtn.textContent = speedCamOn ? 'ON' : 'OFF';
+camToggleBtn.classList.toggle('on', speedCamOn);
+if(!speedCamOn) updateCamStatus(true);
+
+// ================= TRIP SAVING =================
+function fmtClock(ms){
+  const s = Math.floor(ms / 1000);
+  return [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map(v => String(v).padStart(2, '0')).join(':');
+}
+function tripAvg(distKm, movingMs){ return movingMs > 10000 ? distKm / (movingMs / 3600000) : 0; }
+function downsample(pts, max){
+  if(pts.length <= max) return pts;
+  const step = pts.length / max, out = [];
+  for(let i = 0; i < max; i++) out.push(pts[Math.floor(i * step)]);
+  out.push(pts[pts.length - 1]);
+  return out;
+}
+
+function startTrip(){
+  tripDistanceKm = 0; tripDistanceEl.textContent = '0.0';
+  currentTrip = { id: Date.now(), start: Date.now(), startPlace: null, endPlace: null, dest: destination ? destination.name : null, movingMs: 0, maxSpeed: 0, overspeed: 0, points: [] };
+  lastCheckpoint = Date.now();
+  spokenWeatherWarn.clear();
+  clearInterval(tripTimer); tripTimer = setInterval(tickTrip, 1000);
+  renderLiveTrip();
+}
+function tickTrip(){
+  renderLiveTrip();
+  if(Date.now() - lastCheckpoint > 30000){ lastCheckpoint = Date.now(); checkpointTrip(); }
+}
+function renderLiveTrip(){
+  if(!currentTrip) return;
+  const avg = tripAvg(tripDistanceKm, currentTrip.movingMs);
+  liveTripEl.textContent = `🔴 Ride chal rahi hai\n⏱️ ${fmtClock(Date.now() - currentTrip.start)} · 📏 ${tripDistanceKm.toFixed(1)} km\n⚡ Avg ${Math.round(avg)} km/h · Max ${currentTrip.maxSpeed} km/h`;
+}
+function checkpointTrip(){
+  if(!currentTrip) return;
+  saveJSON('rideActiveTrip', Object.assign({}, currentTrip, { dist: tripDistanceKm, points: downsample(currentTrip.points, 1200) }));
+}
+function buildTripRecord(t, dist, endTs){
+  return { id: t.id, start: t.start, end: endTs, dist, durMs: endTs - t.start, movingMs: t.movingMs, avg: tripAvg(dist, t.movingMs),
+           max: t.maxSpeed, overspeed: t.overspeed, startPlace: t.startPlace, endPlace: t.endPlace, dest: t.dest, points: downsample(t.points || [], 800) };
+}
+function addTripRecord(rec){
+  trips.unshift(rec);
+  if(trips.length > 30) trips = trips.slice(0, 30);
+  if(!saveJSON('rideTrips', trips)){
+    trips.forEach((x, i) => { if(i > 5) x.points = []; });
+    saveJSON('rideTrips', trips);
+  }
+  renderTrips();
+}
+function finishTrip(){
+  clearInterval(tripTimer); tripTimer = null;
+  if(!currentTrip) return;
+  const t = currentTrip; currentTrip = null;
+  try{ localStorage.removeItem('rideActiveTrip'); }catch(e){}
+  if(tripDistanceKm < 0.1){ liveTripEl.textContent = 'Trip bahut chhoti thi (0.1 km se kam), isliye save nahi hui.'; return; }
+  const rec = buildTripRecord(t, tripDistanceKm, Date.now());
+  addTripRecord(rec);
+  liveTripEl.textContent = `✅ Trip save ho gayi: ${rec.dist.toFixed(1)} km · ${fmtClock(rec.durMs)} · Avg ${Math.round(rec.avg)} km/h`;
+}
+function recoverActiveTrip(){
+  const t = loadJSON('rideActiveTrip', null);
+  if(!t) return;
+  try{ localStorage.removeItem('rideActiveTrip'); }catch(e){}
+  if(!t.dist || t.dist < 0.1) return;
+  const lastTs = t.points && t.points.length ? t.points[t.points.length - 1][2] : t.start;
+  const rec = buildTripRecord(t, t.dist, lastTs); rec.recovered = true;
+  addTripRecord(rec);
+}
+
+function mk(tag, cls, text){ const e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; }
+function tripToGpx(t){
+  const esc = v => String(v == null ? '' : v).replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[c]));
+  const pts = (t.points || []).map(p => `<trkpt lat="${p[0]}" lon="${p[1]}">${p[2] ? '<time>' + new Date(p[2]).toISOString() + '</time>' : ''}</trkpt>`).join('');
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Ride Assistant Pro" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>${esc('Ride ' + new Date(t.start).toLocaleString('en-IN'))}</name><trkseg>${pts}</trkseg></trk></gpx>`;
+}
+function downloadText(filename, text, mime){
+  const url = URL.createObjectURL(new Blob([text], { type: mime }));
+  const a = document.createElement('a'); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+async function showTripOnMap(t){
+  if(!t.points || t.points.length < 2){ setAlert('Is trip ka route save nahi hai.', 'warn'); return; }
+  if(!map) await ensureLocation();
+  if(!map){ setAlert('Map abhi ready nahi hai.', 'warn'); return; }
+  forceCenterOnNextUpdate = false;
+  setTripLine(t.points);
+  fitCoords(t.points);
+  try{ document.getElementById('mapContainer').scrollIntoView({ behavior: 'smooth', block: 'center' }); }catch(e){}
+}
+
+function renderTrips(){
+  tripListEl.innerHTML = '';
+  const totalKm = trips.reduce((a, t) => a + (t.dist || 0), 0);
+  tripTotalsEl.textContent = trips.length ? `Kul ${trips.length} trips · ${totalKm.toFixed(1)} km` : 'Abhi tak koi trip save nahi hui.';
+  tripClearAllBtn.style.display = trips.length ? '' : 'none';
+  trips.forEach(t => {
+    const item = mk('div', 'trip-item');
+    const top = mk('div', 't-top');
+    top.appendChild(mk('span', 't-dist', `${(t.dist || 0).toFixed(1)} km`));
+    top.appendChild(mk('span', 't-date', new Date(t.start).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) + (t.recovered ? ' (adhoori)' : '')));
+    item.appendChild(top);
+    item.appendChild(mk('div', 't-meta', `⏱️ ${fmtClock(t.durMs || 0)} · ⚡ Avg ${Math.round(t.avg || 0)} · Max ${t.max || 0} km/h` + (t.overspeed ? ` · 🚨 ${t.overspeed}x overspeed` : '')));
+    item.appendChild(mk('div', 't-place', `${t.startPlace || 'Shuruaat'} → ${t.dest || t.endPlace || 'Ant'}`));
+    const act = mk('div', 't-actions');
+    const bMap = mk('button', 't-btn', '🗺️ Map'); bMap.addEventListener('click', () => showTripOnMap(t));
+    const bGpx = mk('button', 't-btn', '⬇️ GPX');
+    bGpx.addEventListener('click', () => {
+      if(!t.points || t.points.length < 2){ setAlert('Is trip ka route save nahi hai.', 'warn'); return; }
+      downloadText(`ride-${new Date(t.start).toISOString().slice(0, 10)}.gpx`, tripToGpx(t), 'application/gpx+xml');
+    });
+    const bDel = mk('button', 't-btn', '🗑️'); bDel.style.flex = '0 0 44px';
+    bDel.addEventListener('click', () => {
+      if(!confirm('Ye trip hata dein?')) return;
+      trips = trips.filter(x => x.id !== t.id); saveJSON('rideTrips', trips); renderTrips();
+    });
+    act.appendChild(bMap); act.appendChild(bGpx); act.appendChild(bDel);
+    item.appendChild(act);
+    tripListEl.appendChild(item);
+  });
+}
+tripClearAllBtn.addEventListener('click', () => {
+  if(!confirm('Saari saved trips hata dein? Ye wapas nahi aayengi.')) return;
+  trips = []; saveJSON('rideTrips', trips); renderTrips();
+});
+tripMapClearBtn.addEventListener('click', () => setTripLine([]));
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'hidden') checkpointTrip(); });
 
 // ---------- Location helpers: GPS -> (na mile to) internet se approx location ----------
 function getGpsOnce(timeout=8000){
@@ -651,12 +1163,8 @@ async function executeNearbySearch(filterQuerySnippet, label, fallbackQueryText)
   }
 
   // Map par sabhi paas ke options dikhao
-  if(map){
-    if(nearbyLayer) map.removeLayer(nearbyLayer);
-    nearbyLayer = L.layerGroup().addTo(map);
-    unique.forEach(u => L.circleMarker([u.lat, u.lon], { radius: 7, color: '#F5A623', fillColor: '#F5A623', fillOpacity: 0.9 })
-      .bindPopup(`${u.name} — ${fmtDist(u.dist)}`).addTo(nearbyLayer));
-  }
+  clearNearbyMarkers();
+  unique.forEach(u => addNearbyMarker(u));
 
   const nearest = unique[0];
   await setDestination(nearest.lat, nearest.lon, nearest.name);
@@ -710,6 +1218,8 @@ async function handleUserQuery(text){
   setAiStatus('Aapne kaha: "' + text + '"');
 
   if(/jam|traffic|bheed|जाम|ट्रैफिक/.test(t)){ await handleTrafficJam(); return; }
+  if(/camera|कैमरा|\bcam\b/.test(t)){ const r = camStatusEl.textContent; setAiStatus(r); speakClean(r); return; }
+  if(/mausam|weather|baarish|barish|मौसम|बारिश/.test(t)){ await speakWeather(); return; }
   if(/highway|haivay|हाइवे/.test(t)){ await findNearby(Q.highway, 'highway', 'highway'); return; }
 
   if(/manzil|destination|kitni door|kitna door|dur kitna|pahunchna/.test(t)){
@@ -801,7 +1311,7 @@ document.addEventListener('click', (e) => {
 
 async function setDestination(lat, lon, name){
   destination = { lat, lon, name, currentStepIndex: 0, steps: null };
-  activeRouteData = null; routeCoordsCache = [];
+  activeRouteData = null; routeCoordsCache = []; setRouteLine([]);
   destDistValEl.textContent = '--'; destTimeValEl.textContent = '--';
   destInput.value = name;
   destSuggestionsEl.style.display = 'none';
@@ -811,15 +1321,13 @@ async function setDestination(lat, lon, name){
     destStatusEl.textContent = '📡 Aapki location dhoond raha hoon...';
     await ensureLocation();
   }
-  if(map){
-    if(destMarker) map.removeLayer(destMarker);
-    destMarker = L.marker([lat, lon]).addTo(map).bindPopup(name);
-  }
+  setDestMarker(lat, lon, name);
   if(lastPos){
     await buildRouteForDestination(lastPos.lat, lastPos.lon);
   } else {
     destStatusEl.textContent = '⚠️ Location nahi mili, isliye doori/samay nahi nikal sakta. Browser mein location allow karein aur HTTPS/localhost par kholein.';
   }
+  updateDestWeather();
 }
 
 setDestBtn.addEventListener('click', async () => {
@@ -837,35 +1345,52 @@ clearDestBtn.addEventListener('click', () => {
   destination = null; destInput.value = ''; destSuggestionsEl.style.display = 'none'; destStatusEl.textContent = ''; navPanelEl.style.display = 'none';
   activeRouteData = null; routeCoordsCache = [];
   destDistValEl.textContent = '--'; destTimeValEl.textContent = '--';
-  if(destMarker && map){ map.removeLayer(destMarker); destMarker = null; }
-  if(routeLine && map){ map.removeLayer(routeLine); routeLine = null; }
+  weatherDestEl.textContent = '';
+  if(destMapMarker){ try{ destMapMarker.remove(); }catch(e){} destMapMarker = null; }
+  clearNearbyMarkers();
+  setRouteLine([]);
 });
 
 function handlePosition(pos){
   const { latitude, longitude, speed, heading } = pos.coords;
-  let speedKmh = speed !== null && speed >= 0 ? Math.round(speed * 3.6) : lastSpeedKmh;
+  const nowTs = Date.now();
+  const havePrev = !!lastPos && !lastPosApprox && (nowTs - lastPos.time) < 30000;
+  const dKm = havePrev ? haversineKm(lastPos.lat, lastPos.lon, latitude, longitude) : 0;
+  const dtSec = havePrev ? (nowTs - lastPos.time) / 1000 : 0;
+
+  // Speed: GPS ki speed, na mile to doori/samay se nikalo
+  let speedKmh;
+  if(speed !== null && speed !== undefined && !isNaN(speed) && speed >= 0){ speedKmh = Math.round(speed * 3.6); }
+  else if(havePrev && dtSec > 0.5 && dtSec < 30 && dKm * 1000 >= 6){ speedKmh = Math.round(dKm / dtSec * 3600); }
+  else { speedKmh = (havePrev && dKm * 1000 < 6) ? 0 : lastSpeedKmh; }
+
   let headingDeg = null;
-  if(heading !== null && heading !== undefined && !isNaN(heading) && heading >= 0){
-    headingDeg = heading;
-  } else if(lastPos){
-    headingDeg = bearing(lastPos.lat, lastPos.lon, latitude, longitude);
-  }
+  if(heading !== null && heading !== undefined && !isNaN(heading) && heading >= 0 && speedKmh >= 2){ headingDeg = heading; }
+  else if(havePrev && dKm * 1000 >= 5){ headingDeg = bearing(lastPos.lat, lastPos.lon, latitude, longitude); }
   if(headingDeg === null || isNaN(headingDeg)){ headingDeg = lastHeading !== null ? lastHeading : 0; }
 
   if(lastHeading !== null && speedKmh > 20){
     let turnDiff = Math.abs(((headingDeg - lastHeading + 540) % 360) - 180);
-    if(turnDiff > 45 && Date.now() - lastTurnSpoken > 25000){
-      lastTurnSpoken = Date.now();
+    if(turnDiff > 45 && nowTs - lastTurnSpoken > 25000){
+      lastTurnSpoken = nowTs;
       speak('Aage tez mod hai, speed kam karein.');
       setAlert('⚠️ Tez mod (Sharp Turn) aage hai!', 'warn');
     }
   }
   lastHeading = headingDeg;
 
-  if(lastPos && !lastPosApprox){
-    const d = haversineKm(lastPos.lat, lastPos.lon, latitude, longitude);
-    tripDistanceKm += d;
-    tripDistanceEl.textContent = tripDistanceKm.toFixed(1);
+  // Trip distance / stats (khade hone par GPS drift nahi judta)
+  if(havePrev && dKm * 1000 < 2000 && (speedKmh >= 3 || dKm * 1000 >= 20)){
+    tripDistanceKm += dKm;
+    if(currentTrip && speedKmh >= 3) currentTrip.movingMs += Math.min(dtSec, 30) * 1000;
+  }
+  tripDistanceEl.textContent = tripDistanceKm.toFixed(1);
+  if(currentTrip){
+    if(speedKmh <= 200 && speedKmh > currentTrip.maxSpeed) currentTrip.maxSpeed = speedKmh;
+    const lp = currentTrip.points[currentTrip.points.length - 1];
+    if(!lp || haversineKm(lp[0], lp[1], latitude, longitude) * 1000 >= 15){
+      currentTrip.points.push([+latitude.toFixed(5), +longitude.toFixed(5), nowTs]);
+    }
   }
 
   if(destination){
@@ -878,9 +1403,9 @@ function handlePosition(pos){
       destTimeValEl.textContent = fmtDuration(remMin);
 
       // Off-route (100 m+) hone par, 30 second cooldown ke saath re-route
-      if(routeCoordsCache.length > 1 && Date.now() - lastRerouteTime > 30000){
+      if(routeCoordsCache.length > 1 && nowTs - lastRerouteTime > 30000){
         if(distToRouteM(latitude, longitude, routeCoordsCache) > 100){
-          lastRerouteTime = Date.now();
+          lastRerouteTime = nowTs;
           buildRouteForDestination(latitude, longitude);
         }
       }
@@ -889,10 +1414,9 @@ function handlePosition(pos){
         const remMin = Math.round((remDist / speedKmh) * 60);
         destTimeValEl.textContent = fmtDuration(remMin);
       }
-      // Destination pehle set hui thi, ab GPS mila to route banao
-      if(!routeRequestPending && Date.now() - lastRouteAttempt > 15000){
+      if(!routeRequestPending && nowTs - lastRouteAttempt > 15000){
         routeRequestPending = true;
-        lastRouteAttempt = Date.now();
+        lastRouteAttempt = nowTs;
         buildRouteForDestination(latitude, longitude).finally(() => { routeRequestPending = false; });
       }
     }
@@ -903,17 +1427,21 @@ function handlePosition(pos){
   needleEl.style.transform = `rotate(${headingDeg}deg)`;
   compassLabelEl.textContent = `${compassLabel(headingDeg)} · ${Math.round(headingDeg)}°`;
 
-  updateMap(latitude, longitude);
+  updateMap(latitude, longitude, headingDeg, speedKmh);
   updatePlaceName(latitude, longitude);
   if(destination) updateTurnByTurn(latitude, longitude);
+  checkSpeedCams(latitude, longitude, headingDeg, speedKmh);
+  maybeFetchCams(latitude, longitude);
 
-  if(speedKmh > speedLimit && Date.now() - lastOverspeedSpoken > 20000){
-    lastOverspeedSpoken = Date.now();
+  if(speedKmh > speedLimit && nowTs - lastOverspeedSpoken > 20000){
+    lastOverspeedSpoken = nowTs;
+    if(currentTrip) currentTrip.overspeed++;
     speak(`Speed limit cross ho gayi hai, speed ${speedKmh} km/h hai.`);
   }
-  lastPos = { lat: latitude, lon: longitude, time: Date.now() };
+  lastPos = { lat: latitude, lon: longitude, time: nowTs };
   lastPosApprox = false;
   lastSpeedKmh = speedKmh;
+  maybeUpdateWeather(false);
 }
 
 async function requestWakeLock(){
@@ -933,11 +1461,14 @@ startBtn.addEventListener('click', () => {
     tracking = false; startBtn.textContent = 'Start Ride'; startBtn.classList.remove('stop');
     statusDot.classList.remove('live'); navigator.geolocation.clearWatch(watchId);
     releaseWakeLock();
+    finishTrip();
     setAlert('Ride ruk gayi.');
   } else {
     if(!('geolocation' in navigator)){ setAlert('GPS not supported', 'warn'); return; }
     tracking = true; startBtn.textContent = 'Stop Ride'; startBtn.classList.add('stop');
     statusDot.classList.add('live'); setAlert('Tracking shuru ho gayi!', 'ok');
+    forceCenterOnNextUpdate = true;
+    startTrip();
     requestWakeLock();
     watchId = navigator.geolocation.watchPosition(handlePosition, () => setAlert('GPS Error: location permission check karein', 'warn'), { enableHighAccuracy: true });
   }
@@ -946,11 +1477,19 @@ startBtn.addEventListener('click', () => {
 recenterBtn.addEventListener('click', () => {
   forceCenterOnNextUpdate = true;
   if(lastPos && map){
-    map.setView([lastPos.lat, lastPos.lon], map.getZoom());
+    try{ map.easeTo({ center: [lastPos.lon, lastPos.lat], duration: 600 }); }catch(e){}
     setAlert('Map aapki live location par set ho gaya.', 'ok');
   } else {
     setAlert('Pehle "Start Ride" dabakar location on karein.', 'warn');
   }
+});
+
+rotateModeBtn.addEventListener('click', () => {
+  mapRotationMode = !mapRotationMode;
+  rotateModeBtn.textContent = mapRotationMode ? '🧭 Ghoomta Map' : '⬆️ North-Up';
+  rotateModeBtn.classList.toggle('on', mapRotationMode);
+  if(map && !mapRotationMode){ try{ map.easeTo({ bearing: 0, duration: 500 }); }catch(e){} }
+  setArrow(mapRotationMode ? 0 : (lastHeading || 0));
 });
 
 talkBtn.addEventListener('click', () => {
@@ -975,6 +1514,17 @@ document.getElementById('nearPump').addEventListener('click', () => findNearby(Q
 document.getElementById('nearWater').addEventListener('click', () => findNearby(Q.water, 'water point', 'drinking water'));
 document.getElementById('nearKirana').addEventListener('click', () => findNearby(Q.kirana, 'kirana store', 'supermarket'));
 document.getElementById('nearAtm').addEventListener('click', () => findNearby(Q.atm, 'ATM', 'ATM'));
+
+// ----- load par -----
+recoverActiveTrip();
+renderTrips();
+try{
+  if(navigator.permissions && navigator.permissions.query){
+    navigator.permissions.query({ name: 'geolocation' }).then(p => {
+      if(p.state === 'granted'){ ensureLocation().then(ok => { if(ok) maybeUpdateWeather(true); }); }
+    }).catch(() => {});
+  }
+}catch(e){}
 </script>
 </body>
 </html>
