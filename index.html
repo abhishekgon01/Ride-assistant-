@@ -178,6 +178,7 @@ body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; m
       <button class="quick-btn" id="nearAtm">🏧 ATM</button>
     </div>
     <div class="ai-status" id="aiStatus" style="margin-top:8px;"></div>
+    <a id="gmapsLink" href="#" target="_blank" rel="noopener" style="display:none; color:var(--teal); font-size:13px; font-weight:600; text-decoration:underline;"></a>
   </div>
 
   <div class="panel">
@@ -549,9 +550,16 @@ function addNearbyMarker(u){
   try{
     const el = document.createElement('div');
     el.style.cssText = 'width:16px;height:16px;border-radius:50%;background:#F5A623;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.6);cursor:pointer;';
-    const m = new maplibregl.Marker({ element: el }).setLngLat([u.lon, u.lat])
-      .setPopup(new maplibregl.Popup({ offset: 12 }).setText(`${u.name} — ${fmtDist(u.dist)}`)).addTo(map);
-    nearbyMarkers.push(m);
+    const box = document.createElement('div');
+    box.style.cssText = 'font-size:13px;color:#111;display:flex;flex-direction:column;gap:6px;min-width:130px;';
+    const label = document.createElement('div'); label.textContent = `${u.name} — ${fmtDist(u.dist)}`;
+    const btn = document.createElement('button');
+    btn.textContent = '➡️ Yahan chalo';
+    btn.style.cssText = 'border:none;border-radius:8px;padding:7px;background:#2DD4BF;color:#04211D;font-weight:600;cursor:pointer;';
+    box.appendChild(label); box.appendChild(btn);
+    const popup = new maplibregl.Popup({ offset: 12 }).setDOMContent(box);
+    btn.addEventListener('click', () => { popup.remove(); setDestination(u.lat, u.lon, u.name); });
+    nearbyMarkers.push(new maplibregl.Marker({ element: el }).setLngLat([u.lon, u.lat]).setPopup(popup).addTo(map));
   }catch(e){}
 }
 
@@ -1014,7 +1022,7 @@ const OVERPASS_SERVERS = [
 let lastOverpassError = '';
 let overpassDownUntil = 0;
 let lastNomCall = 0;
-async function nominatimNearby(term, d){
+async function nominatimNearby(term, d, types){
   const wait = 1100 - (Date.now() - lastNomCall);
   if(wait > 0) await new Promise(r => setTimeout(r, wait));
   lastNomCall = Date.now();
@@ -1022,7 +1030,7 @@ async function nominatimNearby(term, d){
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(term)}&viewbox=${lastPos.lon-d},${lastPos.lat+d},${lastPos.lon+d},${lastPos.lat-d}&bounded=1&limit=10`;
     const res = await fetch(url, { headers: { 'Accept-Language': 'hi,en' } });
     const data = await res.json();
-    return (data || []).map(item => ({
+    return (data || []).filter(item => !types || types.includes(item.type)).map(item => ({
       name: item.display_name.split(',')[0],
       lat: parseFloat(item.lat), lon: parseFloat(item.lon),
       dist: haversineKm(lastPos.lat, lastPos.lon, parseFloat(item.lat), parseFloat(item.lon))
@@ -1097,16 +1105,28 @@ function overpassQuery(q){
 
 function placeName(tags, label){
   if(!tags) return label + ' (naam darj nahi)';
-  return tags.name || tags['name:hi'] || tags['name:en'] || tags.brand || tags.operator ||
+  const base = tags.name || tags['name:hi'] || tags['name:en'] || tags.brand || tags.operator ||
          (tags.ref ? 'Road ' + tags.ref : null) || (label + ' (naam darj nahi)');
+  if(tags.amenity !== 'atm' && tags.atm === 'yes' && !/atm/i.test(base)) return base + ' (bank/ATM)';
+  return base;
+}
+function showGmapsLink(label){
+  const a = document.getElementById('gmapsLink');
+  if(!a || !lastPos) return;
+  const term = String(label).replace(/\(.*?\)/g, '').trim();
+  a.href = `https://www.google.com/maps/search/${encodeURIComponent(term)}/@${lastPos.lat},${lastPos.lon},15z`;
+  a.textContent = `🗺️ Google Maps par paas ke "${term}" bhi dekhein`;
+  a.style.display = 'inline-block';
 }
 function fmtDist(km){ return km < 1 ? Math.round(km * 1000) + ' m' : km.toFixed(1) + ' km'; }
 
 async function executeNearbySearch(filterQuerySnippet, label, fallbackQueryText){
   setAiStatus(`Najdeek ${label} dhoond raha hoon...`);
+  const gl = document.getElementById('gmapsLink'); if(gl) gl.style.display = 'none';
 
   let mapped = [];
   let serversFailed = false;
+  let usedFallback = false;
 
   // 1) Overpass (agar abhi haal mein fail hua ho to skip, taaki intezaar na karna pade)
   if(Date.now() > overpassDownUntil){
@@ -1134,13 +1154,13 @@ async function executeNearbySearch(filterQuerySnippet, label, fallbackQueryText)
     for(const [rKm, d] of [[8, 0.07], [25, 0.2], [60, 0.5]]){
       let found = [];
       if(tags) found = found.concat(await photonNearby(tags, rKm, label));
-      for(const term of terms){ found = found.concat(await nominatimNearby(term, d)); }
+      for(const term of terms){ found = found.concat(await nominatimNearby(term, d, NOM_TYPES[filterQuerySnippet])); }
       const seenKeys = new Set();
       found = found.filter(f => {
         const k = f.lat.toFixed(4) + ',' + f.lon.toFixed(4);
         if(seenKeys.has(k)) return false; seenKeys.add(k); return true;
       }).sort((x, y) => x.dist - y.dist);
-      if(found.length){ mapped = found; break; }
+      if(found.length){ mapped = found; usedFallback = true; break; }
     }
   }
 
@@ -1149,6 +1169,7 @@ async function executeNearbySearch(filterQuerySnippet, label, fallbackQueryText)
       ? `Paas mein ${label} nahi mila, aur map server (Overpass) bhi jawab nahi de raha:\n${lastOverpassError || 'unknown'}`
       : `60 km ke andar koi ${label} OpenStreetMap par nahi mila.`;
     setAiStatus(msg);
+    showGmapsLink(label);
     speak(serversFailed ? 'Map server abhi jawab nahi de raha.' : `Aaspaas koi ${label} nahi mila.`);
     return;
   }
@@ -1174,7 +1195,10 @@ async function executeNearbySearch(filterQuerySnippet, label, fallbackQueryText)
     txt += '\nAur paas mein:\n' + unique.slice(1).map((u,i) => `${i+2}. ${u.name} — ${fmtDist(u.dist)}`).join('\n');
   }
   if(lastPosApprox) txt += '\n(Approx location se; GPS on karke Start Ride dabayein.)';
+  if(usedFallback) txt += '\n⚠️ Ye result OpenStreetMap ke text-search se mila hai, galat ho sakta hai. Neeche Google Maps se bhi check karein.';
+  txt += '\nMap par peele dot dabakar doosra option bhi chun sakte hain.';
   setAiStatus(txt);
+  showGmapsLink(label);
   speak(`Sabse najdeek ${label}: ${nearest.name}, ${fmtDist(nearest.dist).replace('km','kilometer').replace(' m',' meter')} door hai. Rasta set kar diya gaya hai.`);
 }
 
@@ -1187,7 +1211,7 @@ const Q = {
   kirana: 'nw["shop"~"^(convenience|supermarket|general)$"]',
   snack: 'nw["shop"="supermarket"]',
   hotel: 'nw["tourism"="hotel"]',
-  atm: 'nw["amenity"="atm"]'
+  atm: 'nw["amenity"="atm"];nw["amenity"="bank"]["atm"="yes"];nw["atm"="yes"]["amenity"!="atm"]'
 };
 
 const PHOTON_TAGS = {
@@ -1201,6 +1225,7 @@ const PHOTON_TAGS = {
   [Q.atm]: ['amenity:atm']
 };
 
+const NOM_TYPES = { [Q.atm]: ['atm', 'bank'] };
 const NOM_TERMS = {
   [Q.fuel]: ['petrol pump', 'petrol station', 'fuel'],
   [Q.hospital]: ['hospital'],
