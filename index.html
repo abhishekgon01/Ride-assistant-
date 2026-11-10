@@ -301,7 +301,7 @@ let wakeLock = null;
 // ----- naya state (rotating map, weather, cameras, trips) -----
 let mapRotationMode = true; let mapFailed = false;
 let bikeMarker = null; let bikeArrowEl = null; let destMapMarker = null;
-let nearbyMarkers = []; let camMarkers = [];
+let nearbyMarkers = []; let camMarkers = []; let turnMarkers = []; let turnMarkKey = '';
 let routeGeo = lineData([]); let tripGeo = lineData([]);
 const STYLE_DARK = 'https://tiles.openfreemap.org/styles/liberty';
 const STYLE_LIGHT = 'https://tiles.openfreemap.org/styles/bright';
@@ -603,7 +603,7 @@ async function buildRouteForDestination(fromLat, fromLon, alternative=false){
     destination.currentStepIndex = 0;
     destination.announced = new Set();
     destination.arrivedSpoken = false;
-    destination.lastSeg = 0;
+    destination.lastSeg = 0; destination.stepMin = null; destination.routeId = Date.now();
     try{
       let seg = 0;
       destination.steps.forEach(st => {
@@ -611,6 +611,7 @@ async function buildRouteForDestination(fromLat, fromLon, alternative=false){
         if(pr && pr.off <= 80){ st.along = pr.along; seg = pr.seg; } else st.along = null;
       });
     }catch(e){}
+    renderTurnMarkers();
     destStatusEl.textContent = `🎯 ${destination.name}: ${fmtDist(route.distanceKm)} · ${fmtDuration(route.durationMin)}` + (lastPosApprox ? ' (approx location se)' : '');
   } else if(!route && !alternative){
     destStatusEl.textContent = '⚠️ Route nahi ban paya (internet ya route server ki dikkat). Thodi der mein dobara try hoga.';
@@ -653,14 +654,30 @@ function updateTurnByTurn(lat, lon){
 
   // Tez speed par 25 m ka circle chhoot sakta hai, isliye radius speed ke hisaab se badhta hai
   const advanceM = Math.max(25, (lastSpeedKmh / 3.6) * 2.5);
+  const me = projectOnRoute(lat, lon, Math.max(0, (destination.lastSeg || 0) - 5));
+  const onRoute = !!me && me.off <= 60;
+  if(onRoute) destination.lastSeg = me.seg;
   while(idx < steps.length){
-    const d = haversineKm(lat, lon, steps[idx].lat, steps[idx].lon) * 1000;
-    if(d < advanceM) idx++; else break;
+    const st = steps[idx];
+    const d = haversineKm(lat, lon, st.lat, st.lon) * 1000;
+    let passed = d < advanceM || st.type === 'depart';   // shuruaati 'depart' step kabhi screen par nahi dikhana
+    // Route par mud ke point se 30 m+ aage nikal gaye (GPS ne circle chhoda ho tab bhi) -> mud nikal chuka
+    if(!passed && onRoute && st.along != null && (me.along - st.along) * 1000 > 30) passed = true;
+    // Route-data na ho to: pehle paas aaye the, ab doori badh rahi hai -> mud nikal chuka
+    if(!passed && st.along == null){
+      const sm = destination.stepMin;
+      if(sm && sm.idx === idx){
+        if(d < sm.d) sm.d = d; else if(sm.d < 80 && d > sm.d + 60) passed = true;
+      } else destination.stepMin = { idx, d };
+    }
+    if(!passed) break;
+    idx++;
   }
   destination.currentStepIndex = idx;
 
   if(idx >= steps.length){
     navPanelEl.style.display = 'none';
+    clearTurnMarkers();
     if(!destination.arrivedSpoken && tracking){
       destination.arrivedSpoken = true;
       setAlert('🏁 Aap manzil par pahunch gaye!', 'ok');
@@ -672,9 +689,7 @@ function updateTurnByTurn(lat, lon){
   const next = steps[idx];
   let distToNext = haversineKm(lat, lon, next.lat, next.lon) * 1000;
   // Seedhi line ki jagah road ke raaste ki doori (kurve/ghumaav ginke). Route se door ho to seedhi line hi rehti hai.
-  const me = projectOnRoute(lat, lon, Math.max(0, (destination.lastSeg || 0) - 5));
   if(me && me.off <= 100 && next.along != null){
-    destination.lastSeg = me.seg;
     const roadM = (next.along - me.along) * 1000;
     if(roadM >= 0 && roadM <= distToNext * 5 + 300) distToNext = Math.max(distToNext, roadM);
   }
@@ -684,9 +699,11 @@ function updateTurnByTurn(lat, lon){
   navInstructionEl.textContent = info.text;
   navDistanceEl.textContent = distToNext >= 1000 ? (distToNext/1000).toFixed(1) + ' km' : Math.round(distToNext) + ' m';
 
+  renderTurnMarkers();
+
   if(!tracking) return;
   const isArrive = next.type === 'arrive';
-  const straight = (!next.modifier || next.modifier === 'straight') && !/ramp|exit|roundabout|rotary|arrive|uturn/.test(next.type);
+  const straight = isStraightStep(next);
   if(straight) return;                       // "seedhe chaliye" par bolne ki zaroorat nahi
   const tier = distToNext <= 120 ? 100 : (distToNext <= 320 ? 300 : 0);
   if(!tier) return;
@@ -749,6 +766,39 @@ function setDestMarker(lat, lon, name){
       .setPopup(new maplibregl.Popup({ offset: 25 }).setText(name)).addTo(map);
   }catch(e){}
 }
+// ---- Map par mud ke nishan (left/right arrow) ----
+function isStraightStep(st){
+  return (!st.modifier || st.modifier === 'straight') && !/ramp|exit|roundabout|rotary|arrive|uturn/.test(st.type);
+}
+function clearTurnMarkers(){
+  turnMarkers.forEach(m => { try{ m.remove(); }catch(e){} });
+  turnMarkers = []; turnMarkKey = '';
+}
+// Agle 4 mud map par dikhata hai; sabse paas wala bada aur amber border ke saath
+function renderTurnMarkers(){
+  if(!map || !destination || !destination.steps){ clearTurnMarkers(); return; }
+  const idx = destination.currentStepIndex || 0;
+  const key = (destination.routeId || 0) + ':' + idx;
+  if(key === turnMarkKey) return;
+  clearTurnMarkers(); turnMarkKey = key;
+  let shown = 0;
+  for(let i = idx; i < destination.steps.length && shown < 4; i++){
+    const st = destination.steps[i];
+    if(st.type === 'arrive' || st.type === 'depart' || isStraightStep(st)) continue;
+    try{
+      const info = maneuverInfo(st);
+      const big = shown === 0;
+      const sz = big ? 36 : 26;
+      const el = document.createElement('div');
+      el.textContent = info.icon;
+      el.title = info.text;
+      el.style.cssText = `width:${sz}px;height:${sz}px;border-radius:50%;background:#0E1218;border:${big ? 3 : 2}px solid ${big ? '#F5A623' : '#2DD4BF'};display:flex;align-items:center;justify-content:center;font-size:${big ? 19 : 14}px;line-height:1;box-shadow:0 1px 5px rgba(0,0,0,.6);`;
+      turnMarkers.push(new maplibregl.Marker({ element: el }).setLngLat([st.lon, st.lat]).addTo(map));
+      shown++;
+    }catch(e){}
+  }
+}
+
 function clearNearbyMarkers(){ nearbyMarkers.forEach(m => { try{ m.remove(); }catch(e){} }); nearbyMarkers = []; }
 function addNearbyMarker(u){
   if(!map) return;
@@ -786,6 +836,7 @@ function initMap(lat, lon){
 
     renderCamMarkers();
     if(destination) setDestMarker(destination.lat, destination.lon, destination.name);
+    renderTurnMarkers();
   }catch(err){
     map = null; mapFailed = true;
     const box = document.getElementById('liveMap');
@@ -1599,7 +1650,7 @@ document.addEventListener('click', (e) => {
 
 async function setDestination(lat, lon, name){
   destination = { lat, lon, name, currentStepIndex: 0, steps: null, announced: new Set(), arrivedSpoken: false };
-  activeRouteData = null; routeCoordsCache = []; routeCum = []; altMode = false; prevRouteCoords = null; setRouteLine([]);
+  activeRouteData = null; routeCoordsCache = []; routeCum = []; altMode = false; prevRouteCoords = null; setRouteLine([]); clearTurnMarkers();
   destDistValEl.textContent = '--'; destTimeValEl.textContent = '--';
   destInput.value = name;
   destSuggestionsEl.style.display = 'none';
@@ -1648,7 +1699,7 @@ shareLocBtn.addEventListener('click', async () => {
 
 clearDestBtn.addEventListener('click', () => {
   destination = null; destInput.value = ''; destSuggestionsEl.style.display = 'none'; destStatusEl.textContent = ''; navPanelEl.style.display = 'none';
-  activeRouteData = null; routeCoordsCache = []; routeCum = []; altMode = false; prevRouteCoords = null;
+  activeRouteData = null; routeCoordsCache = []; routeCum = []; altMode = false; prevRouteCoords = null; clearTurnMarkers();
   destDistValEl.textContent = '--'; destTimeValEl.textContent = '--';
   weatherDestEl.textContent = '';
   if(destMapMarker){ try{ destMapMarker.remove(); }catch(e){} destMapMarker = null; }
