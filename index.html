@@ -406,6 +406,26 @@ function routeRemainingKm(lat, lon){
   return Math.max(0, routeCum[routeCum.length - 1] - along);
 }
 
+// Point ko route par project karta hai: route ke shuru se kitna km aage (along), route se kitna door (off, m), aur kaunsa segment.
+// fromSeg se aage dhoondta hai, taaki loop wale routes mein galat jagah na pakde.
+function projectOnRoute(lat, lon, fromSeg){
+  const coords = routeCoordsCache;
+  if(coords.length < 2 || routeCum.length !== coords.length) return null;
+  const kx = 111320 * Math.cos(toRad(lat)), ky = 110540;
+  let best = Infinity, bi = -1, bt = 0;
+  for(let i = Math.max(0, fromSeg || 0); i < coords.length - 1; i++){
+    const ax = (coords[i][1]-lon)*kx,   ay = (coords[i][0]-lat)*ky;
+    const bx = (coords[i+1][1]-lon)*kx, by = (coords[i+1][0]-lat)*ky;
+    const dx = bx-ax, dy = by-ay, len2 = dx*dx + dy*dy;
+    let t = len2 ? -(ax*dx + ay*dy)/len2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    const d = Math.hypot(ax + t*dx, ay + t*dy);
+    if(d < best){ best = d; bi = i; bt = t; }
+  }
+  if(bi < 0) return null;
+  return { along: routeCum[bi] + (routeCum[bi+1] - routeCum[bi]) * bt, off: best, seg: bi };
+}
+
 function bearing(lat1, lon1, lat2, lon2){
   const y = Math.sin(toRad(lon2-lon1)) * Math.cos(toRad(lat2));
   const x = Math.cos(toRad(lat1))*Math.sin(toRad(lat2)) - Math.sin(toRad(lat1))*Math.cos(toRad(lat2))*Math.cos(toRad(lon2-lon1));
@@ -583,6 +603,14 @@ async function buildRouteForDestination(fromLat, fromLon, alternative=false){
     destination.currentStepIndex = 0;
     destination.announced = new Set();
     destination.arrivedSpoken = false;
+    destination.lastSeg = 0;
+    try{
+      let seg = 0;
+      destination.steps.forEach(st => {
+        const pr = projectOnRoute(st.lat, st.lon, seg);
+        if(pr && pr.off <= 80){ st.along = pr.along; seg = pr.seg; } else st.along = null;
+      });
+    }catch(e){}
     destStatusEl.textContent = `🎯 ${destination.name}: ${fmtDist(route.distanceKm)} · ${fmtDuration(route.durationMin)}` + (lastPosApprox ? ' (approx location se)' : '');
   } else if(!route && !alternative){
     destStatusEl.textContent = '⚠️ Route nahi ban paya (internet ya route server ki dikkat). Thodi der mein dobara try hoga.';
@@ -642,7 +670,14 @@ function updateTurnByTurn(lat, lon){
   }
 
   const next = steps[idx];
-  const distToNext = haversineKm(lat, lon, next.lat, next.lon) * 1000;
+  let distToNext = haversineKm(lat, lon, next.lat, next.lon) * 1000;
+  // Seedhi line ki jagah road ke raaste ki doori (kurve/ghumaav ginke). Route se door ho to seedhi line hi rehti hai.
+  const me = projectOnRoute(lat, lon, Math.max(0, (destination.lastSeg || 0) - 5));
+  if(me && me.off <= 100 && next.along != null){
+    destination.lastSeg = me.seg;
+    const roadM = (next.along - me.along) * 1000;
+    if(roadM >= 0 && roadM <= distToNext * 5 + 300) distToNext = Math.max(distToNext, roadM);
+  }
   const info = maneuverInfo(next);
   navPanelEl.style.display = 'flex';
   navIconEl.textContent = info.icon;
