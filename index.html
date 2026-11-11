@@ -1,1919 +1,434 @@
 <!DOCTYPE html>
-<html lang="hi">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ride Assistant Pro</title>
-<meta name="theme-color" content="#0E1218">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet">
-<style>
-:root{ --bg:#0E1218; --panel:#171D27; --panel-2:#1D2531; --line:#2A3444; --text:#EDEFF3; --text-dim:#8B96A5; --amber:#F5A623; --teal:#2DD4BF; --coral:#FF5A5A; }
-body[data-theme="light"]{ --bg:#F5F3EE; --panel:#FFFFFF; --panel-2:#EDEAE2; --line:#D8D3C7; --text:#161616; --text-dim:#5A5648; --amber:#B8720A; --teal:#0E8577; --coral:#C23B3B; }
-body{transition:background .3s;}
-*{box-sizing:border-box; margin:0; padding:0;}
-html,body{height:100%;}
-body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; display:flex; justify-content:center; -webkit-tap-highlight-color:transparent; }
-.app{ width:100%; max-width:480px; min-height:100vh; display:flex; flex-direction:column; padding:20px 18px 28px; }
-.app-header{ display:flex; align-items:center; justify-content:space-between; padding-bottom:16px; }
-.brand{ font-family:'Space Grotesk',sans-serif; font-size:17px; font-weight:600; }
-.status-dot{ width:9px; height:9px; border-radius:50%; background:var(--text-dim); transition:background .3s; }
-.status-dot.live{ background:var(--teal); box-shadow:0 0 0 3px rgba(45,212,191,0.2); }
-.hero{ display:flex; align-items:center; justify-content:space-between; background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:22px 20px; margin-bottom:12px; }
-.speed-block{display:flex; align-items:baseline; gap:8px;}
-.speed-value{ font-family:'Space Grotesk',sans-serif; font-size:64px; font-weight:700; line-height:1; color:var(--amber); }
-.speed-value.over{color:var(--coral);}
-.speed-unit{font-size:14px; color:var(--text-dim);}
-.compass-block{display:flex; flex-direction:column; align-items:center; gap:6px;}
-.compass{ position:relative; width:56px; height:56px; border-radius:50%; border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; }
-.compass-n{ position:absolute; top:4px; font-size:9px; color:var(--text-dim); font-weight:600; }
-.compass-needle{ width:2px; height:20px; background:var(--teal); border-radius:2px; transform-origin:bottom center; position:relative; bottom:-8px; }
-.compass-label{font-size:12px; color:var(--text-dim);}
-.trip-strip{ display:flex; background:var(--panel); border:1px solid var(--line); border-radius:18px; margin-bottom:12px; overflow:hidden; }
-.trip-stat{ flex:1; padding:14px 8px; text-align:center; display:flex; flex-direction:column; gap:4px; }
-.trip-stat:not(:last-child){border-right:1px solid var(--line);}
-.trip-stat span{ font-family:'Space Grotesk',sans-serif; font-size:18px; font-weight:600; color:var(--teal); }
-.trip-stat small{font-size:11px; color:var(--text-dim);}
-.alert-bar{ background:var(--panel-2); border:1px solid var(--line); border-radius:14px; padding:12px 14px; font-size:13.5px; color:var(--text-dim); line-height:1.4; margin-bottom:16px; min-height:20px; }
-.alert-bar.warn{color:var(--coral); border-color:rgba(255,90,90,0.4);}
-.alert-bar.ok{color:var(--teal); border-color:rgba(45,212,191,0.35);}
-.panel{ background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:16px; display:flex; flex-direction:column; gap:14px; margin-top:12px; }
-.panel-title{ font-family:'Space Grotesk',sans-serif; font-size:14px; font-weight:600; color:var(--text); }
-.sos-input-row{display:flex; gap:8px; position:relative;}
-.sos-input-row input{ flex:1; background:var(--panel-2); border:1px solid var(--line); border-radius:8px; color:var(--text); padding:10px 12px; font-size:14px; outline:none; }
-.sos-input-row input:focus{border-color:var(--teal);}
-.sos-buttons{display:flex; gap:8px;}
-.sos-btn{ flex:1; border:none; border-radius:10px; padding:11px; font-size:13px; font-weight:600; cursor:pointer; }
-.sos-btn.share{background:var(--panel-2); color:var(--teal); border:1px solid var(--teal);}
-.btn-talk{ background:var(--teal); color:#04211D; border:none; border-radius:12px; padding:14px; font-size:15px; font-weight:600; cursor:pointer; width:100%; }
-.btn-talk.listening{background:var(--coral); color:#2A0000;}
-.ai-status{ white-space:pre-line; font-size:13px; color:var(--text-dim); line-height:1.4; min-height:16px; }
-.quick-row{ display:flex; gap:3px; flex-wrap:wrap; }
-.quick-btn{ flex:1 1 22%; min-width:65px; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:8px 4px; font-size:11px; cursor:pointer; text-align:center; }
-.quick-btn.jam{ border-color:var(--coral); color:var(--coral); font-weight:600; }
-.controls{ background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:16px; display:flex; flex-direction:column; gap:14px; margin-top:12px; }
-.btn-primary{ background:var(--amber); color:#1A1300; border:none; border-radius:12px; padding:14px; font-size:15px; font-weight:600; cursor:pointer; }
-.btn-primary.stop{background:var(--coral); color:#2A0000;}
-.control-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
-.control-row label{font-size:13.5px; color:var(--text-dim);}
-.stepper{display:flex; align-items:center; gap:10px;}
-.stepper button{ width:30px; height:30px; border-radius:8px; border:1px solid var(--line); background:var(--panel-2); color:var(--text); font-size:16px; cursor:pointer; }
-.stepper span{ font-family:'Space Grotesk',sans-serif; font-size:15px; font-weight:600; min-width:38px; text-align:center; }
-.toggle-btn{ border:1px solid var(--line); background:var(--panel-2); color:var(--text-dim); border-radius:20px; padding:6px 14px; font-size:12.5px; font-weight:600; cursor:pointer; }
-.toggle-btn.on{background:rgba(45,212,191,0.15); border-color:var(--teal); color:var(--teal);}
-
-.trip-item{ background:var(--panel-2); border:1px solid var(--line); border-radius:12px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; }
-.trip-item .t-top{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
-.trip-item .t-dist{ font-family:'Space Grotesk',sans-serif; font-size:17px; font-weight:700; color:var(--teal); }
-.trip-item .t-date{ font-size:12px; color:var(--text-dim); }
-.trip-item .t-meta{ font-size:12.5px; color:var(--text); }
-.trip-item .t-place{ font-size:12px; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.trip-item .t-actions{ display:flex; gap:6px; }
-.t-btn{ flex:1; border:1px solid var(--line); background:var(--panel); color:var(--text); border-radius:8px; padding:7px 4px; font-size:11.5px; cursor:pointer; }
-.cam-marker{ font-size:20px; line-height:1; filter:drop-shadow(0 1px 2px rgba(0,0,0,.6)); cursor:pointer; }
-.maplibregl-ctrl-attrib{ font-size:10px; }
-/* Night mode mein map ko dim karta hai (markers/route par asar nahi padta) */
-body[data-theme="dark"] #liveMap .maplibregl-canvas{ filter:brightness(.6) saturate(.8); }
-</style>
-</head>
-<body>
-<div class="app">
-  <div class="app-header">
-    <span class="brand">Ride Assistant Pro</span>
-    <div style="display:flex; align-items:center; gap:12px;">
-      <button id="voiceToggle" class="toggle-btn on" style="padding:6px 10px;">🔊</button>
-      <button id="themeToggle" class="toggle-btn">🌙 Night Mode</button>
-      <span class="status-dot" id="statusDot"></span>
-    </div>
-  </div>
-
-  <div class="hero">
-    <div class="speed-block">
-      <div class="speed-value" id="speedValue">0</div>
-      <div class="speed-unit">km/h</div>
-    </div>
-    <div class="compass-block">
-      <div class="compass">
-        <span class="compass-n">N</span>
-        <div class="compass-needle" id="needle"></div>
-      </div>
-      <div class="compass-label" id="compassLabel">--</div>
-    </div>
-  </div>
-
-  <div class="panel" id="navPanel" style="display:none; flex-direction:row; align-items:center; gap:14px;">
-    <div id="navIcon" style="font-size:40px; line-height:1;">⬆️</div>
-    <div style="flex:1;">
-      <div id="navInstruction" style="font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:16px;">--</div>
-      <div id="navDistance" style="font-size:13px; color:var(--text-dim);">--</div>
-    </div>
-  </div>
-
-  <div class="trip-strip">
-    <div class="trip-stat"><span id="destDistVal">--</span><small>Manzil Doori</small></div>
-    <div class="trip-stat"><span id="destTimeVal">--</span><small>Pahunchne ka Samay</small></div>
-    <div class="trip-stat"><span id="tripDistance">0.0</span><small>Total km</small></div>
-  </div>
-
-  <div class="panel">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-      <div class="panel-title" style="margin-bottom:0;">📍 Live Map</div>
-      <div style="display:flex; gap:5px;">
-        <button id="recenterBtn" class="toggle-btn on" style="font-size:10px; padding:4px 6px;">🎯 My Loc</button>
-        <button id="rotateModeBtn" class="toggle-btn on" style="font-size:10px; padding:4px 6px;">🧭 Ghoomta Map</button>
-      </div>
-    </div>
-    <div id="mapContainer" style="height:260px; border-radius:12px; overflow:hidden; background:var(--panel-2); position:relative; z-index:1;">
-      <div id="liveMap" style="width:100%; height:100%;"></div>
-    </div>
-    <div class="ai-status" id="placeNameText" style="margin-top:6px; font-weight:600; color:var(--teal);">Location track karne ke liye "Start Ride" dabayein.</div>
-  </div>
-
-  <div class="panel" id="weatherPanel">
-    <div style="display:flex; align-items:center; justify-content:space-between;">
-      <div class="panel-title">🌦️ Live Mausam</div>
-      <button id="weatherRefreshBtn" class="toggle-btn" style="font-size:10px; padding:4px 8px;">🔄 Refresh</button>
-    </div>
-    <div style="display:flex; align-items:center; gap:14px;">
-      <div id="weatherIcon" style="font-size:44px; line-height:1;">🌡️</div>
-      <div style="flex:1;">
-        <div id="weatherTemp" style="font-family:'Space Grotesk',sans-serif; font-size:26px; font-weight:700; color:var(--amber);">--</div>
-        <div class="ai-status" id="weatherDesc">Refresh dabakar mausam dekhein.</div>
-      </div>
-    </div>
-    <div class="ai-status" id="weatherMeta"></div>
-    <div class="alert-bar" id="weatherAdvice" style="margin-bottom:0; display:none; white-space:pre-line;"></div>
-    <div class="ai-status" id="weatherDest"></div>
-  </div>
-
-  <div class="panel">
-    <div class="panel-title">🎯 Advanced Destination Search</div>
-    <div class="sos-input-row">
-      <input type="text" id="destInput" placeholder="College, Shop ya koi bhi jagah likhein..." autocomplete="off">
-      <div id="destSuggestions" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--panel-2); border:1px solid var(--line); border-radius:0 0 10px 10px; z-index:1000; max-height:180px; overflow-y:auto; box-shadow:0 8px 20px rgba(0,0,0,0.5);"></div>
-    </div>
-    <div class="sos-buttons" style="margin-top:8px;">
-      <button id="setDestBtn" class="sos-btn share">Set</button>
-      <button id="clearDestBtn" class="sos-btn" style="background:var(--panel-2); color:var(--text-dim); border:1px solid var(--line);">Clear</button>
-      <button id="shareLocBtn" class="sos-btn share">📤 Share</button>
-    </div>
-    <div class="ai-status" id="destStatus"></div>
-  </div>
-
-  <div class="alert-bar" id="alertBar">Shuru karne ke liye neeche "Start Ride" dabayein.</div>
-
-  <div class="panel">
-    <div class="panel-title">🤖 Ultimate AI Saathi</div>
-    <div class="sos-input-row" style="margin-bottom:8px;">
-      <input type="text" id="aiChatInput" placeholder="Puchein (jaise: petrol, atm, highway)..." autocomplete="off">
-      <button id="aiChatSendBtn" class="sos-btn share" style="flex:0 0 70px;">Poochein</button>
-    </div>
-    <button id="talkBtn" class="btn-talk">🎤 Ya Bolkar Baat karein</button>
-
-    <div class="quick-row" style="margin-top:8px;">
-      <button class="quick-btn jam" id="btnTrafficJam">🚨 Jam</button>
-      <button class="quick-btn" id="nearFuel">⛽ Petrol</button>
-      <button class="quick-btn" id="nearHosp">🏥 Hosp</button>
-      <button class="quick-btn" id="nearHighway">🛣️ Highway</button>
-      <button class="quick-btn" id="nearPump">🛠️ Pump</button>
-      <button class="quick-btn" id="nearWater">💧 Water</button>
-      <button class="quick-btn" id="nearKirana">🛒 Kirana</button>
-      <button class="quick-btn" id="nearAtm">🏧 ATM</button>
-    </div>
-    <div class="ai-status" id="aiStatus" style="margin-top:8px;"></div>
-    <a id="gmapsLink" href="#" target="_blank" rel="noopener" style="display:none; color:var(--teal); font-size:13px; font-weight:600; text-decoration:underline;"></a>
-  </div>
-
-  <div class="panel">
-    <div style="display:flex; align-items:center; justify-content:space-between;">
-      <div class="panel-title">📷 Speed Camera Alert</div>
-      <button id="camToggleBtn" class="toggle-btn on">ON</button>
-    </div>
-    <div class="ai-status" id="camStatus">Start Ride dabane par aaspaas ke cameras apne aap load honge.</div>
-    <div class="sos-buttons">
-      <button id="camAddBtn" class="sos-btn share">➕ Yahan camera jodein</button>
-      <button id="camClearBtn" class="sos-btn" style="background:var(--panel-2); color:var(--text-dim); border:1px solid var(--line);">Meri cams hatao</button>
-    </div>
-  </div>
-
-  <div class="panel">
-    <div style="display:flex; align-items:center; justify-content:space-between;">
-      <div class="panel-title">🗂️ Trip History</div>
-      <button id="tripMapClearBtn" class="toggle-btn" style="font-size:10px; padding:4px 8px;">🧹 Map saaf</button>
-    </div>
-    <div class="ai-status" id="liveTripText" style="white-space:pre-line;">Ride shuru karne par trip apne aap record hogi aur Stop dabane par save ho jayegi.</div>
-    <div class="ai-status" id="tripTotals" style="font-weight:600; color:var(--teal);"></div>
-    <div id="tripList" style="display:flex; flex-direction:column; gap:8px; max-height:340px; overflow-y:auto;"></div>
-    <button id="tripClearAllBtn" class="sos-btn" style="flex:none; background:var(--panel-2); color:var(--coral); border:1px solid var(--line); display:none;">🗑️ Saari trips hatao</button>
-  </div>
-
-  <div class="controls">
-    <button id="startBtn" class="btn-primary">Start Ride</button>
-    <div class="control-row">
-      <label>Speed limit</label>
-      <button id="autoLimitBtn" class="toggle-btn" style="font-size:11px; padding:4px 10px;">Auto: OFF</button>
-      <div class="stepper">
-        <button id="limitDown">−</button>
-        <span id="limitValue">60</span>
-        <button id="limitUp">+</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+<html lang="hi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Ride Assistant Pro</title><meta name="theme-color" content="#0E1218"></head>
+<body style="background:#0E1218;color:#8B96A5;font-family:sans-serif;padding:24px"><p id="m">Ride Assistant Pro khul raha hai...</p>
 <script>
-const speedValueEl = document.getElementById('speedValue');
-const needleEl = document.getElementById('needle');
-const compassLabelEl = document.getElementById('compassLabel');
-const navPanelEl = document.getElementById('navPanel');
-const navIconEl = document.getElementById('navIcon');
-const navInstructionEl = document.getElementById('navInstruction');
-const navDistanceEl = document.getElementById('navDistance');
-const alertBarEl = document.getElementById('alertBar');
-const startBtn = document.getElementById('startBtn');
-const limitDownBtn = document.getElementById('limitDown');
-const limitUpBtn = document.getElementById('limitUp');
-const limitValueEl = document.getElementById('limitValue');
-const autoLimitBtn = document.getElementById('autoLimitBtn');
-const voiceToggle = document.getElementById('voiceToggle');
-const shareLocBtn = document.getElementById('shareLocBtn');
-const statusDot = document.getElementById('statusDot');
-const themeToggle = document.getElementById('themeToggle');
-const talkBtn = document.getElementById('talkBtn');
-const aiStatusEl = document.getElementById('aiStatus');
-const aiChatInput = document.getElementById('aiChatInput');
-const aiChatSendBtn = document.getElementById('aiChatSendBtn');
-const destInput = document.getElementById('destInput');
-const setDestBtn = document.getElementById('setDestBtn');
-const clearDestBtn = document.getElementById('clearDestBtn');
-const destStatusEl = document.getElementById('destStatus');
-const destSuggestionsEl = document.getElementById('destSuggestions');
-const placeNameTextEl = document.getElementById('placeNameText');
-const recenterBtn = document.getElementById('recenterBtn');
-const btnTrafficJam = document.getElementById('btnTrafficJam');
-const destDistValEl = document.getElementById('destDistVal');
-const destTimeValEl = document.getElementById('destTimeVal');
-const tripDistanceEl = document.getElementById('tripDistance');
-const rotateModeBtn = document.getElementById('rotateModeBtn');
-const weatherRefreshBtn = document.getElementById('weatherRefreshBtn');
-const weatherIconEl = document.getElementById('weatherIcon');
-const weatherTempEl = document.getElementById('weatherTemp');
-const weatherDescEl = document.getElementById('weatherDesc');
-const weatherMetaEl = document.getElementById('weatherMeta');
-const weatherAdviceEl = document.getElementById('weatherAdvice');
-const weatherDestEl = document.getElementById('weatherDest');
-const camToggleBtn = document.getElementById('camToggleBtn');
-const camStatusEl = document.getElementById('camStatus');
-const camAddBtn = document.getElementById('camAddBtn');
-const camClearBtn = document.getElementById('camClearBtn');
-const liveTripEl = document.getElementById('liveTripText');
-const tripTotalsEl = document.getElementById('tripTotals');
-const tripListEl = document.getElementById('tripList');
-const tripClearAllBtn = document.getElementById('tripClearAllBtn');
-const tripMapClearBtn = document.getElementById('tripMapClearBtn');
-
-let tracking = false; let watchId = null; let speedLimit = 60;
-let overspeedActive = false;
-let hindi = true; let lastPos = null; let lastSpeedKmh = 0; let tripDistanceKm = 0;
-let lastOverspeedSpoken = 0; let lastTurnSpoken = 0; let lastHeading = null;
-let map = null; let marker = null; let destMarker = null; let routeLine = null;
-let destination = null; let maplibreLayer = null;
-let forceCenterOnNextUpdate = true; let isDarkMode = true;
-let lastPlaceUpdateTick = 0; let lastPlaceLL = null;
-let activeRouteData = null;
-let routeCoordsCache = [];
-let routeCum = [];                 // route ke har point tak cumulative doori (km)
-let altMode = false;               // Jam ke baad alternative route active hai
-let prevRouteCoords = null;        // alternative se pehle wala route
-let lastRerouteTime = 0;
-let routeRequestPending = false;
-let lastRouteAttempt = 0;
-let lastPosApprox = false;
-let nearbyLayer = null;
-let wakeLock = null;
-
-// ----- naya state (rotating map, weather, cameras, trips) -----
-let mapRotationMode = true; let mapFailed = false;
-let bikeMarker = null; let bikeArrowEl = null; let destMapMarker = null;
-let nearbyMarkers = []; let camMarkers = []; let turnMarkers = []; let turnMarkKey = '';
-let routeGeo = lineData([]); let tripGeo = lineData([]);
-const STYLE_DARK = 'https://tiles.openfreemap.org/styles/liberty';
-const STYLE_LIGHT = 'https://tiles.openfreemap.org/styles/bright';
-
-function loadJSON(key, fallback){ try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }catch(e){ return fallback; } }
-function saveJSON(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); return true; }catch(e){ return false; } }
-function speakClean(text, opts){ speak(String(text).replace(/[^\p{L}\p{N}\s.,:%°\-]/gu, ' '), opts); }
-
-let speedCamOn = loadJSON('rideCamOn', true);
-let speedCams = []; let customCams = loadJSON('rideCustomCams', []);
-let camFetching = false; let lastCamFetch = { lat: null, lon: null, time: 0, ok: false };
-const camAlerted = new Map();
-
-let lastWeather = { time: 0, lat: null, lon: null }; let weatherBusy = false; let lastWeatherData = null;
-const spokenWeatherWarn = new Set();
-
-let currentTrip = null; let tripTimer = null; let lastCheckpoint = 0;
-let trips = loadJSON('rideTrips', []);
-
-let autoLimit = loadJSON('rideAutoLimit', false);
-let lastLimitCheck = { lat: null, lon: null, time: 0 };
-
-{
-  const saved = parseInt(loadJSON('rideSpeedLimit', 60));
-  if(saved >= 10 && saved <= 150) speedLimit = saved;
-  limitValueEl.textContent = speedLimit;
-}
-limitDownBtn.addEventListener('click', () => {
-  if(speedLimit > 10){ speedLimit -= 5; limitValueEl.textContent = speedLimit; saveJSON('rideSpeedLimit', speedLimit); }
-});
-limitUpBtn.addEventListener('click', () => {
-  if(speedLimit < 150){ speedLimit += 5; limitValueEl.textContent = speedLimit; saveJSON('rideSpeedLimit', speedLimit); }
-});
-
-function renderAutoLimitBtn(){
-  autoLimitBtn.textContent = autoLimit ? 'Auto: ON' : 'Auto: OFF';
-  autoLimitBtn.classList.toggle('on', autoLimit);
-}
-renderAutoLimitBtn();
-autoLimitBtn.addEventListener('click', () => {
-  autoLimit = !autoLimit; saveJSON('rideAutoLimit', autoLimit); renderAutoLimitBtn();
-  lastLimitCheck = { lat: null, lon: null, time: 0 };
-  if(autoLimit){ setAlert('Auto speed limit ON: road ka OpenStreetMap limit mila to apne aap set hoga, warna aapki manual limit rahegi.', 'ok'); if(lastPos && tracking) maybeAutoLimit(lastPos.lat, lastPos.lon); }
-});
-
-function fmtDuration(min){
-  min = Math.max(0, Math.round(min));
-  if(min < 60) return min + ' min';
-  const h = Math.floor(min / 60), m = min % 60;
-  return m === 0 ? h + ' hr' : h + ' hr ' + m + ' min';
-}
-
-function toRad(v){ return v * Math.PI / 180; }
-function haversineKm(lat1, lon1, lat2, lon2){
-  const R = 6371; const dLat = toRad(lat2-lat1); const dLon = toRad(lon2-lon1);
-  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-}
-
-// Point se route (segments) ki minimum doori, meters mein
-function distToRouteM(lat, lon, coords){
-  if(!coords || coords.length < 2) return Infinity;
-  const kx = 111320 * Math.cos(toRad(lat)), ky = 110540;
-  let min = Infinity;
-  for(let i = 0; i < coords.length - 1; i++){
-    const ax = (coords[i][1]-lon)*kx,   ay = (coords[i][0]-lat)*ky;
-    const bx = (coords[i+1][1]-lon)*kx, by = (coords[i+1][0]-lat)*ky;
-    const dx = bx-ax, dy = by-ay, len2 = dx*dx + dy*dy;
-    let t = len2 ? -(ax*dx + ay*dy)/len2 : 0;
-    t = Math.max(0, Math.min(1, t));
-    const d = Math.hypot(ax + t*dx, ay + t*dy);
-    if(d < min) min = d;
-  }
-  return min;
-}
-
-// Route ke points tak cumulative doori (km)
-function buildCum(coords){
-  const c = [0];
-  for(let i = 1; i < coords.length; i++){
-    c.push(c[i-1] + haversineKm(coords[i-1][0], coords[i-1][1], coords[i][0], coords[i][1]));
-  }
-  return c;
-}
-// Route par aapki position project karke bacha hua route-distance (km). Route se 300 m+ door ho to null.
-function routeRemainingKm(lat, lon){
-  const coords = routeCoordsCache;
-  if(coords.length < 2 || routeCum.length !== coords.length) return null;
-  const kx = 111320 * Math.cos(toRad(lat)), ky = 110540;
-  let best = Infinity, bi = 0, bt = 0;
-  for(let i = 0; i < coords.length - 1; i++){
-    const ax = (coords[i][1]-lon)*kx,   ay = (coords[i][0]-lat)*ky;
-    const bx = (coords[i+1][1]-lon)*kx, by = (coords[i+1][0]-lat)*ky;
-    const dx = bx-ax, dy = by-ay, len2 = dx*dx + dy*dy;
-    let t = len2 ? -(ax*dx + ay*dy)/len2 : 0;
-    t = Math.max(0, Math.min(1, t));
-    const d = Math.hypot(ax + t*dx, ay + t*dy);
-    if(d < best){ best = d; bi = i; bt = t; }
-  }
-  if(best > 300) return null;
-  const along = routeCum[bi] + (routeCum[bi+1] - routeCum[bi]) * bt;
-  return Math.max(0, routeCum[routeCum.length - 1] - along);
-}
-
-// Point ko route par project karta hai: route ke shuru se kitna km aage (along), route se kitna door (off, m), aur kaunsa segment.
-// fromSeg se aage dhoondta hai, taaki loop wale routes mein galat jagah na pakde.
-function projectOnRoute(lat, lon, fromSeg){
-  const coords = routeCoordsCache;
-  if(coords.length < 2 || routeCum.length !== coords.length) return null;
-  const kx = 111320 * Math.cos(toRad(lat)), ky = 110540;
-  let best = Infinity, bi = -1, bt = 0;
-  for(let i = Math.max(0, fromSeg || 0); i < coords.length - 1; i++){
-    const ax = (coords[i][1]-lon)*kx,   ay = (coords[i][0]-lat)*ky;
-    const bx = (coords[i+1][1]-lon)*kx, by = (coords[i+1][0]-lat)*ky;
-    const dx = bx-ax, dy = by-ay, len2 = dx*dx + dy*dy;
-    let t = len2 ? -(ax*dx + ay*dy)/len2 : 0;
-    t = Math.max(0, Math.min(1, t));
-    const d = Math.hypot(ax + t*dx, ay + t*dy);
-    if(d < best){ best = d; bi = i; bt = t; }
-  }
-  if(bi < 0) return null;
-  return { along: routeCum[bi] + (routeCum[bi+1] - routeCum[bi]) * bt, off: best, seg: bi };
-}
-
-function bearing(lat1, lon1, lat2, lon2){
-  const y = Math.sin(toRad(lon2-lon1)) * Math.cos(toRad(lat2));
-  const x = Math.cos(toRad(lat1))*Math.sin(toRad(lat2)) - Math.sin(toRad(lat1))*Math.cos(toRad(lat2))*Math.cos(toRad(lon2-lon1));
-  return (Math.atan2(y,x) * 180/Math.PI + 360) % 360;
-}
-function compassLabel(deg){
-  const dirs = ['उत्तर N','उ-पू NE','पूर्व E','द-पू SE','दक्षिण S','द-प SW','पश्चिम W','उ-प NW'];
-  return dirs[Math.round(deg / 45) % 8];
-}
-
-// ================= VOICE (queue ke saath) =================
-// Alerts ek doosre ko kaatte nahi: normal alerts line mein bolte hain (purane alert skip ho jaate hain),
-// urgent alerts (camera, tez mod, toofan) turant bolte hain.
-let voiceOn = loadJSON('rideVoiceOn', true);
-const speechQueue = []; let speechBusy = false; let speechGen = 0; let speechWatchdog = null;
-function speechNext(){
-  clearTimeout(speechWatchdog);
-  let item = null;
-  while(speechQueue.length){
-    const it = speechQueue.shift();
-    if(Date.now() - it.ts <= it.maxAge){ item = it; break; }
-  }
-  if(!item){ speechBusy = false; return; }
-  speechBusy = true;
-  const id = ++speechGen;
-  let finished = false;
-  const done = () => { if(finished || id !== speechGen) return; finished = true; speechNext(); };
-  try{
-    const u = new SpeechSynthesisUtterance(item.text);
-    // Text Roman Hindi (Hinglish) mein hai, isliye en-IN voice behtar padhti hai
-    u.lang = 'en-IN'; u.rate = 1.05; u.pitch = 1;
-    u.onend = done; u.onerror = done;
-    speechWatchdog = setTimeout(done, 12000);   // kuch browsers onend nahi bhejte
-    window.speechSynthesis.speak(u);
-  }catch(e){ speechBusy = false; }
-}
-function stopSpeech(){
-  speechQueue.length = 0; speechGen++; speechBusy = false; clearTimeout(speechWatchdog);
-  try{ window.speechSynthesis.cancel(); }catch(e){}
-}
-function speak(text, opts){
-  try{
-    if(!voiceOn || !('speechSynthesis' in window)) return;
-    const o = Object.assign({ urgent: false, maxAge: 20000 }, opts || {});
-    const item = { text, ts: Date.now(), maxAge: o.maxAge };
-    if(o.urgent){
-      speechQueue.length = 0; speechQueue.push(item);
-      speechGen++; speechBusy = false; clearTimeout(speechWatchdog);
-      try{ window.speechSynthesis.cancel(); }catch(e){}
-      speechNext();
-      return;
-    }
-    if(speechQueue.some(q => q.text === text)) return;
-    speechQueue.push(item);
-    while(speechQueue.length > 3) speechQueue.shift();
-    if(!speechBusy) speechNext();
-  }catch(e){}
-}
-
-function renderVoiceBtn(){
-  voiceToggle.textContent = voiceOn ? '🔊' : '🔇';
-  voiceToggle.classList.toggle('on', voiceOn);
-}
-renderVoiceBtn();
-voiceToggle.addEventListener('click', () => {
-  voiceOn = !voiceOn; saveJSON('rideVoiceOn', voiceOn); renderVoiceBtn();
-  if(!voiceOn) stopSpeech();
-  setAlert(voiceOn ? '🔊 Awaaz alerts ON.' : '🔇 Awaaz alerts band hain. Alerts sirf screen par dikhenge.', voiceOn ? 'ok' : '');
-});
-
-function setAlert(text, kind){ alertBarEl.textContent = text; alertBarEl.className = 'alert-bar' + (kind ? ' ' + kind : ''); }
-function setAiStatus(text){ aiStatusEl.textContent = text; }
-
-function fnSetTheme(dark){
-  isDarkMode = dark;
-  document.body.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
-  themeToggle.textContent = isDarkMode ? '🌙 Night Mode' : '☀️ Day Mode';
-  if(map){
-    try{ map.setStyle(currentStyleUrl(), { diff: false }); }catch(e){}
-  }
-}
-
-function checkAutoTheme(){
-  const hour = new Date().getHours();
-  fnSetTheme(hour < 6 || hour >= 18);
-}
-checkAutoTheme();
-themeToggle.addEventListener('click', () => fnSetTheme(!isDarkMode));
-
-// Reverse geocode (Nominatim policy ke hisaab se kam): 45 sec aur 200 m+ chalne par hi
-async function updatePlaceName(lat, lon){
-  const now = Date.now();
-  if(lastPlaceLL){
-    if(now - lastPlaceUpdateTick < 45000) return;
-    if(haversineKm(lastPlaceLL[0], lastPlaceLL[1], lat, lon) * 1000 < 200) return;
-  } else if(now - lastPlaceUpdateTick < 15000) return;
-  lastPlaceUpdateTick = now;
-  try{
-    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`, { headers: { 'Accept-Language': 'hi' } });
-    const data = await res.json();
-    if(data && data.display_name){
-      lastPlaceLL = [lat, lon];
-      const shortName = data.display_name.split(',').slice(0, 3).join(',');
-      placeNameTextEl.textContent = `📍 ${shortName}`;
-      if(currentTrip){ if(!currentTrip.startPlace) currentTrip.startPlace = shortName; currentTrip.endPlace = shortName; }
-    }
-  }catch(e){}
-}
-
-function maneuverInfo(step){
-  if(!step || step.type === 'arrive') return { icon: '🏁', text: 'Manzil aa gayi' };
-
-  const type = step.type; const mod = step.modifier || ''; const name = step.name || '';
-  if(type === 'off ramp' || type === 'exit'){
-    const isLeft = mod.includes('left');
-    return {
-      icon: isLeft ? '↙️' : '↘️',
-      text: isLeft ? `Bayin taraf slip road se niche utre${name ? ' ('+name+')' : ''}` : `Dahine taraf slip road se niche utre${name ? ' ('+name+')' : ''}`
-    };
-  }
-  if(/underpass|tunnel/.test(type)){
-    return { icon: '⬇️', text: `Bridge ke niche se aage badhe${name ? ' ('+name+')' : ''}` };
-  }
-  if(type === 'roundabout' || type === 'rotary' || type === 'roundabout turn'){
-    return { icon: '🔄', text: `Roundabout se nikliye${name ? ' — ' + name + ' par' : ''}` };
-  }
-
-  const modMap = { 'right': 'Right mudiye', 'slight right': 'Halka right mudiye', 'sharp right': 'Tez right mudiye', 'left': 'Left mudiye', 'slight left': 'Halka left mudiye', 'sharp left': 'Tez left mudiye', 'uturn': 'U-turn lijiye' };
-  const actionText = modMap[mod] || 'Seedhe chaliye';
-  const fullText = name ? `${actionText} — ${name} par` : actionText;
-  let icon = '⬆️';
-  if(/right/.test(mod)) icon = '➡️';
-  if(/left/.test(mod)) icon = '⬅️';
-  if(mod === 'uturn') icon = '↩️';
-  return { icon, text: fullText };
-}
-
-// Route banata hai. alternative=true par doosra route na mile to null deta hai.
-async function drawRoute(fromLat, fromLon, toLat, toLon, alternative=false){
-  try{
-    const url = `https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}?overview=full&geometries=geojson&steps=true${alternative ? '&alternatives=true' : ''}`;
-    const res = await fetch(url); const data = await res.json();
-    if(!data.routes || data.routes.length === 0) return null;
-    if(alternative && data.routes.length < 2) return null;
-
-    const route = data.routes[alternative ? 1 : 0];
-    const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
-    routeCoordsCache = coords;
-    routeCum = buildCum(coords);
-
-    setRouteLine(coords);
-    if(!tracking && !alternative){ forceCenterOnNextUpdate = false; fitCoords(coords); }
-
-    const distKm = route.distance / 1000;
-    const durationMin = Math.round(route.duration / 60);
-    activeRouteData = { distKm, durationMin, initialDistKm: distKm };
-    destDistValEl.textContent = distKm >= 1 ? distKm.toFixed(1) + ' km' : Math.round(route.distance) + ' m';
-    destTimeValEl.textContent = fmtDuration(durationMin);
-
-    const steps = route.legs[0].steps.map(s => ({
-      type: s.maneuver.type, modifier: s.maneuver.modifier,
-      lat: s.maneuver.location[1], lon: s.maneuver.location[0], distance: s.distance, name: s.name
-    }));
-    return { distanceKm: distKm, durationMin, steps, coords };
-  }catch(e){}
-  return null;
-}
-
-// Route banakar destination ke steps set karta hai (index reset ke saath)
-async function buildRouteForDestination(fromLat, fromLon, alternative=false){
-  if(!destination) return null;
-  const route = await drawRoute(fromLat, fromLon, destination.lat, destination.lon, alternative);
-  if(route && destination){
-    destination.steps = route.steps;
-    destination.currentStepIndex = 0;
-    destination.announced = new Set();
-    destination.arrivedSpoken = false;
-    destination.lastSeg = 0; destination.stepMin = null; destination.routeId = Date.now();
-    try{
-      let seg = 0;
-      destination.steps.forEach(st => {
-        const pr = projectOnRoute(st.lat, st.lon, seg);
-        if(pr && pr.off <= 80){ st.along = pr.along; seg = pr.seg; } else st.along = null;
-      });
-    }catch(e){}
-    renderTurnMarkers();
-    destStatusEl.textContent = `🎯 ${destination.name}: ${fmtDist(route.distanceKm)} · ${fmtDuration(route.durationMin)}` + (lastPosApprox ? ' (approx location se)' : '');
-  } else if(!route && !alternative){
-    destStatusEl.textContent = '⚠️ Route nahi ban paya (internet ya route server ki dikkat). Thodi der mein dobara try hoga.';
-  }
-  return route;
-}
-
-async function handleTrafficJam(){
-  stopSpeech();
-  speak('Rasta jam hai? Main doosra rasta dhoond raha hoon...');
-  setAiStatus('Traffic jam detect kiya gaya. Doosra rasta dhoond rahe hain...');
-  if(!destination){
-    speak('Pehle destination set karein, phir main doosra rasta dhoondunga.');
-    setAiStatus('Pehle destination set karein, phir Jam dabayein.');
-    return;
-  }
-  if(lastPos){
-    const prev = routeCoordsCache.slice();
-    const alt = await buildRouteForDestination(lastPos.lat, lastPos.lon, true);
-    if(alt){
-      // Purana route yaad rakhte hain: agar aap abhi purani road par ho to auto re-route wapas purane route par nahi jayega
-      prevRouteCoords = prev.length > 1 ? prev : null;
-      altMode = true;
-      lastRerouteTime = Date.now();
-      speak('Yeh lo doosra rasta mil gaya!');
-      setAiStatus('Alternative route set ho gaya!');
-      return;
-    }
-  }
-  speak('Filhal koi doosra alternative route nahi mila.');
-  setAiStatus('Alternative route nahi mila.');
-}
-
-// Turn-by-turn: screen par + awaaz mein (300 m aur 100 m par)
-function updateTurnByTurn(lat, lon){
-  if(!destination || !destination.steps) return;
-  const steps = destination.steps;
-  if(!destination.announced) destination.announced = new Set();
-  let idx = destination.currentStepIndex || 0;
-
-  // Tez speed par 25 m ka circle chhoot sakta hai, isliye radius speed ke hisaab se badhta hai
-  const advanceM = Math.max(25, (lastSpeedKmh / 3.6) * 2.5);
-  const me = projectOnRoute(lat, lon, Math.max(0, (destination.lastSeg || 0) - 5));
-  const onRoute = !!me && me.off <= 60;
-  if(onRoute) destination.lastSeg = me.seg;
-  while(idx < steps.length){
-    const st = steps[idx];
-    const d = haversineKm(lat, lon, st.lat, st.lon) * 1000;
-    let passed = d < advanceM || st.type === 'depart';   // shuruaati 'depart' step kabhi screen par nahi dikhana
-    // Route par mud ke point se 30 m+ aage nikal gaye (GPS ne circle chhoda ho tab bhi) -> mud nikal chuka
-    if(!passed && onRoute && st.along != null && (me.along - st.along) * 1000 > 30) passed = true;
-    // Route-data na ho to: pehle paas aaye the, ab doori badh rahi hai -> mud nikal chuka
-    if(!passed && st.along == null){
-      const sm = destination.stepMin;
-      if(sm && sm.idx === idx){
-        if(d < sm.d) sm.d = d; else if(sm.d < 80 && d > sm.d + 60) passed = true;
-      } else destination.stepMin = { idx, d };
-    }
-    if(!passed) break;
-    idx++;
-  }
-  destination.currentStepIndex = idx;
-
-  if(idx >= steps.length){
-    navPanelEl.style.display = 'none';
-    clearTurnMarkers();
-    if(!destination.arrivedSpoken && tracking){
-      destination.arrivedSpoken = true;
-      setAlert('🏁 Aap manzil par pahunch gaye!', 'ok');
-      speak('Aap apni manzil par pahunch gaye.', { urgent: true });
-    }
-    return;
-  }
-
-  const next = steps[idx];
-  let distToNext = haversineKm(lat, lon, next.lat, next.lon) * 1000;
-  // Seedhi line ki jagah road ke raaste ki doori (kurve/ghumaav ginke). Route se door ho to seedhi line hi rehti hai.
-  if(me && me.off <= 100 && next.along != null){
-    const roadM = (next.along - me.along) * 1000;
-    if(roadM >= 0 && roadM <= distToNext * 5 + 300) distToNext = Math.max(distToNext, roadM);
-  }
-  const info = maneuverInfo(next);
-  navPanelEl.style.display = 'flex';
-  navIconEl.textContent = info.icon;
-  navInstructionEl.textContent = info.text;
-  navDistanceEl.textContent = distToNext >= 1000 ? (distToNext/1000).toFixed(1) + ' km' : Math.round(distToNext) + ' m';
-
-  renderTurnMarkers();
-
-  if(!tracking) return;
-  const isArrive = next.type === 'arrive';
-  const straight = isStraightStep(next);
-  if(straight) return;                       // "seedhe chaliye" par bolne ki zaroorat nahi
-  const tier = distToNext <= 120 ? 100 : (distToNext <= 320 ? 300 : 0);
-  if(!tier) return;
-  if(isArrive && tier === 300) return;
-  const key = idx + ':' + tier;
-  if(destination.announced.has(key)) return;
-  destination.announced.add(key);
-  if(tier === 100) destination.announced.add(idx + ':300');
-
-  const roundTo = tier === 300 ? 50 : 10;
-  const dm = Math.max(roundTo, Math.round(distToNext / roundTo) * roundTo);
-  const sharp = /sharp/.test(next.modifier || '');
-  const phrase = isArrive ? 'Manzil aage hai' : info.text;
-  if(sharp) setAlert('⚠️ Tez mod aage hai!', 'warn');
-  speakClean(`${dm} meter baad, ${phrase}`, { urgent: sharp, maxAge: 8000 });
-}
-
-// ================= MAP (MapLibre GL, rotating) =================
-function currentStyleUrl(){ return isDarkMode ? STYLE_DARK : STYLE_LIGHT; }
-function lineData(coords){
-  if(!coords || coords.length < 2) return { type: 'FeatureCollection', features: [] };
-  return { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords.map(c => [c[1], c[0]]) } };
-}
-function addCustomLayers(){
-  if(!map) return;
-  try{
-    if(!map.getSource('route')) map.addSource('route', { type: 'geojson', data: routeGeo });
-    if(!map.getSource('trip')) map.addSource('trip', { type: 'geojson', data: tripGeo });
-    const lay = { 'line-cap': 'round', 'line-join': 'round' };
-    if(!map.getLayer('route-casing')) map.addLayer({ id: 'route-casing', type: 'line', source: 'route', layout: lay, paint: { 'line-color': '#06302b', 'line-width': 9, 'line-opacity': 0.55 } });
-    if(!map.getLayer('route-line')) map.addLayer({ id: 'route-line', type: 'line', source: 'route', layout: lay, paint: { 'line-color': '#2DD4BF', 'line-width': 5, 'line-opacity': 0.9 } });
-    if(!map.getLayer('trip-line')) map.addLayer({ id: 'trip-line', type: 'line', source: 'trip', layout: lay, paint: { 'line-color': '#F5A623', 'line-width': 4, 'line-opacity': 0.9 } });
-  }catch(e){}
-}
-function setRouteLine(coords){
-  routeGeo = lineData(coords);
-  if(!map) return;
-  try{ const src = map.getSource('route'); if(src) src.setData(routeGeo); else addCustomLayers(); }catch(e){}
-}
-function setTripLine(coords){
-  tripGeo = lineData(coords);
-  if(!map) return;
-  try{ const src = map.getSource('trip'); if(src) src.setData(tripGeo); else addCustomLayers(); }catch(e){}
-}
-function fitCoords(coords){
-  if(!map || !coords || coords.length < 2) return;
-  try{
-    const b = new maplibregl.LngLatBounds();
-    coords.forEach(c => b.extend([c[1], c[0]]));
-    map.fitBounds(b, { padding: 30, duration: 800, bearing: 0, maxZoom: 17 });
-  }catch(e){}
-}
-function setArrow(deg){ if(bikeArrowEl) bikeArrowEl.style.transform = `rotate(${deg}deg)`; }
-
-function setDestMarker(lat, lon, name){
-  if(!map) return;
-  try{
-    if(destMapMarker) destMapMarker.remove();
-    destMapMarker = new maplibregl.Marker({ color: '#FF5A5A' }).setLngLat([lon, lat])
-      .setPopup(new maplibregl.Popup({ offset: 25 }).setText(name)).addTo(map);
-  }catch(e){}
-}
-// ---- Map par mud ke nishan (left/right arrow) ----
-function isStraightStep(st){
-  return (!st.modifier || st.modifier === 'straight') && !/ramp|exit|roundabout|rotary|arrive|uturn/.test(st.type);
-}
-function clearTurnMarkers(){
-  turnMarkers.forEach(m => { try{ m.remove(); }catch(e){} });
-  turnMarkers = []; turnMarkKey = '';
-}
-// Agle 4 mud map par dikhata hai; sabse paas wala bada aur amber border ke saath
-function renderTurnMarkers(){
-  if(!map || !destination || !destination.steps){ clearTurnMarkers(); return; }
-  const idx = destination.currentStepIndex || 0;
-  const key = (destination.routeId || 0) + ':' + idx;
-  if(key === turnMarkKey) return;
-  clearTurnMarkers(); turnMarkKey = key;
-  let shown = 0;
-  for(let i = idx; i < destination.steps.length && shown < 4; i++){
-    const st = destination.steps[i];
-    if(st.type === 'arrive' || st.type === 'depart' || isStraightStep(st)) continue;
-    try{
-      const info = maneuverInfo(st);
-      const big = shown === 0;
-      const sz = big ? 36 : 26;
-      const el = document.createElement('div');
-      el.textContent = info.icon;
-      el.title = info.text;
-      el.style.cssText = `width:${sz}px;height:${sz}px;border-radius:50%;background:#0E1218;border:${big ? 3 : 2}px solid ${big ? '#F5A623' : '#2DD4BF'};display:flex;align-items:center;justify-content:center;font-size:${big ? 19 : 14}px;line-height:1;box-shadow:0 1px 5px rgba(0,0,0,.6);`;
-      turnMarkers.push(new maplibregl.Marker({ element: el }).setLngLat([st.lon, st.lat]).addTo(map));
-      shown++;
-    }catch(e){}
-  }
-}
-
-function clearNearbyMarkers(){ nearbyMarkers.forEach(m => { try{ m.remove(); }catch(e){} }); nearbyMarkers = []; }
-function addNearbyMarker(u){
-  if(!map) return;
-  try{
-    const el = document.createElement('div');
-    el.style.cssText = 'width:16px;height:16px;border-radius:50%;background:#F5A623;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.6);cursor:pointer;';
-    const box = document.createElement('div');
-    box.style.cssText = 'font-size:13px;color:#111;display:flex;flex-direction:column;gap:6px;min-width:130px;';
-    const label = document.createElement('div'); label.textContent = `${u.name} — ${fmtDist(u.dist)}`;
-    const btn = document.createElement('button');
-    btn.textContent = '➡️ Yahan chalo';
-    btn.style.cssText = 'border:none;border-radius:8px;padding:7px;background:#2DD4BF;color:#04211D;font-weight:600;cursor:pointer;';
-    box.appendChild(label); box.appendChild(btn);
-    const popup = new maplibregl.Popup({ offset: 12 }).setDOMContent(box);
-    btn.addEventListener('click', () => { popup.remove(); setDestination(u.lat, u.lon, u.name); });
-    nearbyMarkers.push(new maplibregl.Marker({ element: el }).setLngLat([u.lon, u.lat]).setPopup(popup).addTo(map));
-  }catch(e){}
-}
-
-function initMap(lat, lon){
-  if(map || mapFailed) return;
-  try{
-    map = new maplibregl.Map({
-      container: 'liveMap', style: currentStyleUrl(), center: [lon, lat], zoom: 16,
-      attributionControl: { compact: true }
-    });
-    map.on('style.load', addCustomLayers);
-    map.on('dragstart', (e) => { if(e && e.originalEvent) forceCenterOnNextUpdate = false; });
-
-    const el = document.createElement('div');
-    el.style.cssText = 'width:36px;height:36px;';
-    el.innerHTML = '<svg viewBox="0 0 24 24" width="36" height="36" style="transition:transform .3s; filter:drop-shadow(0 1px 3px rgba(0,0,0,.6));"><circle cx="12" cy="12" r="10.5" fill="#0E1218" stroke="#2DD4BF" stroke-width="1.5"/><path d="M12 4 L17 17.5 L12 14.8 L7 17.5 Z" fill="#F5A623"/></svg>';
-    bikeArrowEl = el.firstChild;
-    bikeMarker = new maplibregl.Marker({ element: el }).setLngLat([lon, lat]).addTo(map);
-
-    renderCamMarkers();
-    if(destination) setDestMarker(destination.lat, destination.lon, destination.name);
-    renderTurnMarkers();
-  }catch(err){
-    map = null; mapFailed = true;
-    const box = document.getElementById('liveMap');
-    if(box){ box.textContent = 'Map nahi chal paya (WebGL ya internet chahiye). Baaki sab features chalte rahenge.'; box.style.cssText += 'display:flex;align-items:center;justify-content:center;text-align:center;padding:14px;font-size:13px;color:var(--text-dim);'; }
-  }
-}
-
-function updateMap(lat, lon, headingDeg, speedKmh){
-  try{
-    if(!map){ initMap(lat, lon); return; }
-    if(bikeMarker) bikeMarker.setLngLat([lon, lat]);
-    setArrow(mapRotationMode ? 0 : headingDeg);
-    if(forceCenterOnNextUpdate){
-      const o = { center: [lon, lat], duration: 900, essential: true };
-      if(mapRotationMode && speedKmh >= 4 && headingDeg != null) o.bearing = headingDeg;
-      map.easeTo(o);
-    }
-  }catch(e){}
-}
-
-// ================= WEATHER (Open-Meteo) =================
-const WMO = {
-  0:['☀️','Saaf aasman'], 1:['🌤️','Zyadatar saaf'], 2:['⛅','Halke baadal'], 3:['☁️','Baadal chhaye'],
-  45:['🌫️','Kohra'], 48:['🌫️','Kohra'],
-  51:['🌦️','Halki boondabandi'], 53:['🌦️','Boondabandi'], 55:['🌧️','Tez boondabandi'], 56:['🌧️','Thandi boondabandi'], 57:['🌧️','Thandi boondabandi'],
-  61:['🌧️','Halki baarish'], 63:['🌧️','Baarish'], 65:['🌧️','Tez baarish'], 66:['🌧️','Thandi baarish'], 67:['🌧️','Thandi baarish'],
-  71:['❄️','Halki barfbari'], 73:['❄️','Barfbari'], 75:['❄️','Tez barfbari'], 77:['❄️','Barf ke daane'],
-  80:['🌦️','Halki bauchhar'], 81:['🌧️','Bauchhar'], 82:['⛈️','Bahut tez bauchhar'], 85:['❄️','Barf ki bauchhar'], 86:['❄️','Barf ki bauchhar'],
-  95:['⛈️','Aandhi-tufan'], 96:['⛈️','Tufan aur ole'], 99:['⛈️','Tufan aur ole']
-};
-function wmo(code){ return WMO[code] || ['🌡️', 'Mausam']; }
-
-async function fetchWeatherData(lat, lon){
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,is_day&hourly=precipitation_probability&forecast_days=2&timezone=auto`;
-  const ctrl = new AbortController(); const timer = setTimeout(() => ctrl.abort(), 12000);
-  const res = await fetch(url, { signal: ctrl.signal });
-  clearTimeout(timer);
-  if(!res.ok) throw new Error('HTTP ' + res.status);
-  const d = await res.json();
-  const c = d.current; if(!c) throw new Error('no data');
-  let rainNext = null;
-  try{
-    const h = d.hourly; const i = h.time.findIndex(t => t >= c.time.slice(0, 13));
-    if(i >= 0){ const vals = h.precipitation_probability.slice(i, i + 3).filter(v => v != null); if(vals.length) rainNext = Math.max(...vals); }
-  }catch(e){}
-  return { temp: c.temperature_2m, feels: c.apparent_temperature, hum: c.relative_humidity_2m, wind: c.wind_speed_10m, code: c.weather_code, precip: c.precipitation || 0, rainNext };
-}
-
-function weatherWarnings(w){
-  const out = []; const code = w.code;
-  if(code >= 95) out.push(['storm', '⚠️ Aandhi-tufan ya bijli ka khatra hai. Surakshit jagah par ruk jayein.']);
-  else if((code >= 61 && code <= 67) || (code >= 80 && code <= 82) || w.precip > 0.2) out.push(['rain', '🌧️ Baarish hai. Road fisalan wali hogi, speed kam rakhein aur brake dheere lagayein.']);
-  else if(code >= 51 && code <= 57) out.push(['drizzle', '🌦️ Boondabandi hai. Road geeli ho sakti hai, dhyan se chalayein.']);
-  else if(w.rainNext != null && w.rainNext >= 60) out.push(['rainsoon', `🌦️ Agle 3 ghante mein baarish ke ${w.rainNext}% chance hain. Raincoat saath rakhein.`]);
-  if(code === 45 || code === 48) out.push(['fog', '🌫️ Kohra hai. Visibility kam hai, headlight on rakhein aur dheere chalein.']);
-  if(code >= 71 && code <= 77) out.push(['snow', '❄️ Barfbari hai. Road par phislan ka khatra hai.']);
-  if(w.feels >= 40) out.push(['heat', '🥵 Bahut garmi hai. Paani peete rahein aur beech mein rukein.']);
-  if(w.temp <= 8) out.push(['cold', '🥶 Thand hai. Garam kapde pehnein, haath thande ho sakte hain.']);
-  if(w.wind >= 35) out.push(['wind', '💨 Tez hawa chal rahi hai. Bike ko sambhal kar chalayein.']);
-  return out;
-}
-
-function renderWeather(w){
-  const [ic, ds] = wmo(w.code);
-  weatherIconEl.textContent = ic;
-  weatherTempEl.textContent = `${Math.round(w.temp)}°C`;
-  weatherDescEl.textContent = `${ds} · Mehsoos ${Math.round(w.feels)}°C` + (lastPosApprox ? ' (approx location)' : '');
-  weatherMetaEl.textContent = `💧 Nami ${Math.round(w.hum)}% · 💨 Hawa ${Math.round(w.wind)} km/h` + (w.rainNext != null ? ` · 🌧️ Agle 3 ghante mein baarish ke chance ${w.rainNext}%` : '');
-  const warns = weatherWarnings(w);
-  if(warns.length){
-    weatherAdviceEl.style.display = '';
-    weatherAdviceEl.textContent = warns.map(x => x[1]).join('\n');
-    weatherAdviceEl.className = 'alert-bar warn';
-  } else {
-    weatherAdviceEl.style.display = 'none';
-  }
-  if(tracking){
-    const fresh = warns.find(x => !spokenWeatherWarn.has(x[0]));
-    if(fresh){ spokenWeatherWarn.add(fresh[0]); speakClean(fresh[1], { urgent: fresh[0] === 'storm', maxAge: 30000 }); }
-  }
-}
-
-async function maybeUpdateWeather(force = false){
-  if(!lastPos || weatherBusy) return;
-  const age = Date.now() - lastWeather.time;
-  const moved = lastWeather.lat == null ? Infinity : haversineKm(lastWeather.lat, lastWeather.lon, lastPos.lat, lastPos.lon);
-  if(!force && age < 10 * 60 * 1000 && moved < 15) return;
-  weatherBusy = true;
-  const { lat, lon } = lastPos;
-  try{
-    const w = await fetchWeatherData(lat, lon);
-    lastWeatherData = w; lastWeather = { time: Date.now(), lat, lon };
-    renderWeather(w);
-  }catch(e){
-    lastWeather.time = Date.now() - 8 * 60 * 1000;  // ~2 min baad dobara try
-    if(!lastWeatherData) weatherDescEl.textContent = 'Mausam abhi load nahi hua. Internet check karein, Refresh dabayein.';
-  }
-  weatherBusy = false;
-}
-
-async function updateDestWeather(){
-  if(!destination){ weatherDestEl.textContent = ''; return; }
-  const d = destination;
-  try{
-    const w = await fetchWeatherData(d.lat, d.lon);
-    if(destination !== d) return;
-    const [ic, ds] = wmo(w.code);
-    weatherDestEl.textContent = `📍 Manzil (${d.name}) par: ${ic} ${Math.round(w.temp)}°C, ${ds}` + (w.rainNext != null ? ` · baarish ke chance ${w.rainNext}%` : '');
-  }catch(e){}
-}
-
-async function speakWeather(){
-  setAiStatus('Mausam dekh raha hoon...');
-  const ok = await ensureLocation();
-  if(!ok){ const r = 'Location nahi mili, mausam nahi bata sakta.'; setAiStatus(r); speak(r); return; }
-  await maybeUpdateWeather(true);
-  if(!lastWeatherData){ const r = 'Mausam abhi nahi mil paya.'; setAiStatus(r); speak(r); return; }
-  const w = lastWeatherData; const [ic, ds] = wmo(w.code);
-  let r = `Abhi ${ds}, temperature ${Math.round(w.temp)} degree, hawa ${Math.round(w.wind)} kilometer prati ghanta.`;
-  if(w.rainNext != null) r += ` Agle teen ghante mein baarish ka chance ${w.rainNext} percent.`;
-  setAiStatus(`${ic} ${r}`); speak(r);
-}
-
-weatherRefreshBtn.addEventListener('click', async () => {
-  weatherDescEl.textContent = 'Mausam load ho raha hai...';
-  const ok = await ensureLocation();
-  if(!ok){ weatherDescEl.textContent = 'Location nahi mili. Location permission dein.'; return; }
-  await maybeUpdateWeather(true);
-  updateDestWeather();
-});
-
-// ================= SPEED CAMERAS =================
-async function photonCams(lat, lon, rKm){
-  try{
-    const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 8000);
-    const res = await fetch(`https://photon.komoot.io/reverse?lon=${lon}&lat=${lat}&radius=${rKm}&limit=50&osm_tag=highway:speed_camera`, { signal: ctrl.signal });
-    clearTimeout(t);
-    if(!res.ok) return [];
-    const data = await res.json();
-    return (data.features || []).map(f => {
-      const c = f.geometry && f.geometry.coordinates; if(!c) return null;
-      return { id: 'p' + c[1].toFixed(5) + ',' + c[0].toFixed(5), lat: c[1], lon: c[0], maxspeed: null };
-    }).filter(Boolean);
-  }catch(e){ return []; }
-}
-
-async function fetchSpeedCams(lat, lon){
-  if(camFetching) return;
-  camFetching = true;
-  let ok = false; let found = [];
-  try{
-    if(Date.now() > overpassDownUntil){
-      const r = 6000;
-      const dLat = r / 111000, dLon = r / (111320 * Math.cos(toRad(lat)));
-      const bbox = `${(lat-dLat).toFixed(5)},${(lon-dLon).toFixed(5)},${(lat+dLat).toFixed(5)},${(lon+dLon).toFixed(5)}`;
-      const q = `[out:json][timeout:10][bbox:${bbox}];(node["highway"="speed_camera"];node["enforcement"="maxspeed"];);out 150;`;
-      const els = await overpassQuery(q);
-      if(els === null){ overpassDownUntil = Date.now() + 2 * 60 * 1000; }
-      else {
-        ok = true;
-        found = els.filter(e => e.lat != null && e.lon != null).map(e => ({
-          id: 'osm' + e.id, lat: e.lat, lon: e.lon,
-          maxspeed: parseInt(e.tags && e.tags.maxspeed) || null
-        }));
-      }
-    }
-    if(!ok){
-      const ph = await photonCams(lat, lon, 6);
-      if(ph.length){ ok = true; found = ph; }
-    }
-  }catch(e){}
-  lastCamFetch = { lat, lon, time: Date.now(), ok };
-  speedCams = found.concat(customCams);
-  camFetching = false;
-  renderCamMarkers();
-  updateCamStatus(ok);
-}
-
-function maybeFetchCams(lat, lon){
-  if(!speedCamOn || camFetching) return;
-  const sinceMs = Date.now() - lastCamFetch.time;
-  const interval = lastCamFetch.ok ? 15 * 60 * 1000 : 120 * 1000;
-  const moved = lastCamFetch.lat == null ? Infinity : haversineKm(lastCamFetch.lat, lastCamFetch.lon, lat, lon);
-  if((moved > 3 && sinceMs > 60 * 1000) || sinceMs > interval) fetchSpeedCams(lat, lon);
-}
-
-function updateCamStatus(ok){
-  if(!speedCamOn){ camStatusEl.textContent = '📷 Camera alert band hai.'; return; }
-  const n = speedCams.length, my = customCams.length;
-  if(n > 0) camStatusEl.textContent = `📷 ${n} camera mile` + (my ? ` (jinme ${my} aapke jode hue)` : '') + '. Paas aane par voice alert aayega.';
-  else if(ok === false) camStatusEl.textContent = '⚠️ Camera data load nahi hua (server dikkat). Thodi der mein dobara try hoga.';
-  else camStatusEl.textContent = 'Is ilake mein OpenStreetMap par koi speed camera darj nahi hai. "Yahan camera jodein" se aap khud jod sakte hain.';
-}
-
-function renderCamMarkers(){
-  camMarkers.forEach(m => { try{ m.remove(); }catch(e){} }); camMarkers = [];
-  if(!map || !speedCamOn) return;
-  speedCams.slice(0, 200).forEach(c => {
-    try{
-      const el = document.createElement('div'); el.className = 'cam-marker'; el.textContent = '📷';
-      camMarkers.push(new maplibregl.Marker({ element: el }).setLngLat([c.lon, c.lat]).addTo(map));
-    }catch(e){}
-  });
-}
-
-function checkSpeedCams(lat, lon, headingDeg, speedKmh){
-  if(!speedCamOn || speedCams.length === 0 || speedKmh < 5) return;
-  const now = Date.now();
-  const alertDist = Math.max(300, Math.min(800, speedKmh * 8));
-  for(const c of speedCams){
-    const dM = haversineKm(lat, lon, c.lat, c.lon) * 1000;
-    if(dM > alertDist) continue;
-    const diff = Math.abs(((bearing(lat, lon, c.lat, c.lon) - headingDeg + 540) % 360) - 180);
-    if(dM > 60 && diff > 60) continue;          // peeche ya side mein hai
-    if(now - (camAlerted.get(c.id) || 0) < 10 * 60 * 1000) continue;
-    camAlerted.set(c.id, now);
-    const r = Math.max(10, Math.round(dM / 10) * 10);
-    const lim = c.maxspeed ? ` Limit ${c.maxspeed} km/h.` : '';
-    setAlert(`📷 Speed camera ${r} m aage!${lim}`, 'warn');
-    speak(`Aage speed camera hai, ${r} meter door.${c.maxspeed ? ' Limit ' + c.maxspeed + ' kilometer prati ghanta.' : ''} Speed kam karein.`, { urgent: true });
-    break;
-  }
-}
-
-camToggleBtn.addEventListener('click', () => {
-  speedCamOn = !speedCamOn; saveJSON('rideCamOn', speedCamOn);
-  camToggleBtn.textContent = speedCamOn ? 'ON' : 'OFF';
-  camToggleBtn.classList.toggle('on', speedCamOn);
-  renderCamMarkers(); updateCamStatus(lastCamFetch.ok);
-  if(speedCamOn && lastPos) fetchSpeedCams(lastPos.lat, lastPos.lon);
-});
-camAddBtn.addEventListener('click', () => {
-  if(!lastPos){ setAlert('Pehle "Start Ride" dabayein, phir camera jodein.', 'warn'); return; }
-  if(lastPosApprox){ setAlert('Approx location par camera na jodein. GPS on karke Start Ride dabayein.', 'warn'); return; }
-  const c = { id: 'c' + Date.now(), lat: lastPos.lat, lon: lastPos.lon, maxspeed: null, custom: true };
-  customCams.push(c); saveJSON('rideCustomCams', customCams);
-  speedCams.push(c); camAlerted.set(c.id, Date.now());
-  renderCamMarkers(); updateCamStatus(true);
-  setAlert('📷 Camera yahin jud gaya. Agli baar paas aane par alert aayega.', 'ok');
-});
-camClearBtn.addEventListener('click', () => {
-  if(!customCams.length){ setAlert('Aapne koi camera nahi joda hai.'); return; }
-  if(!confirm('Aapke jode hue saare cameras hata dein?')) return;
-  customCams = []; saveJSON('rideCustomCams', customCams);
-  speedCams = speedCams.filter(c => !c.custom);
-  renderCamMarkers(); updateCamStatus(lastCamFetch.ok);
-});
-camToggleBtn.textContent = speedCamOn ? 'ON' : 'OFF';
-camToggleBtn.classList.toggle('on', speedCamOn);
-if(!speedCamOn) updateCamStatus(true);
-
-// ================= AUTO SPEED LIMIT (OSM maxspeed, optional) =================
-async function maybeAutoLimit(lat, lon){
-  if(!autoLimit || Date.now() < overpassDownUntil) return;
-  const now = Date.now();
-  if(now - lastLimitCheck.time < 45000) return;
-  if(lastLimitCheck.lat != null && haversineKm(lastLimitCheck.lat, lastLimitCheck.lon, lat, lon) * 1000 < 150) return;
-  lastLimitCheck = { lat, lon, time: now };
-  try{
-    const q = `[out:json][timeout:8];way(around:25,${lat.toFixed(5)},${lon.toFixed(5)})["highway"]["maxspeed"];out tags 8;`;
-    const els = await overpassQuery(q);
-    if(!els) return;
-    for(const e of els){
-      const raw = String(e.tags && e.tags.maxspeed || '');
-      let v = parseInt(raw);
-      if(!v) continue;
-      if(/mph/i.test(raw)) v = Math.round(v * 1.609);
-      v = Math.round(v / 5) * 5;
-      if(v >= 10 && v <= 150){ speedLimit = v; limitValueEl.textContent = v; break; }
-    }
-  }catch(e){}
-}
-
-// ================= TRIP SAVING =================
-function fmtClock(ms){
-  const s = Math.floor(ms / 1000);
-  return [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map(v => String(v).padStart(2, '0')).join(':');
-}
-function tripAvg(distKm, movingMs){ return movingMs > 10000 ? distKm / (movingMs / 3600000) : 0; }
-function downsample(pts, max){
-  if(pts.length <= max) return pts;
-  const step = pts.length / max, out = [];
-  for(let i = 0; i < max; i++) out.push(pts[Math.floor(i * step)]);
-  out.push(pts[pts.length - 1]);
-  return out;
-}
-
-function startTrip(){
-  tripDistanceKm = 0; tripDistanceEl.textContent = '0.0';
-  currentTrip = { id: Date.now(), start: Date.now(), startPlace: null, endPlace: null, dest: destination ? destination.name : null, movingMs: 0, maxSpeed: 0, overspeed: 0, points: [] };
-  lastCheckpoint = Date.now();
-  spokenWeatherWarn.clear();
-  clearInterval(tripTimer); tripTimer = setInterval(tickTrip, 1000);
-  renderLiveTrip();
-}
-function tickTrip(){
-  renderLiveTrip();
-  if(Date.now() - lastCheckpoint > 30000){ lastCheckpoint = Date.now(); checkpointTrip(); }
-}
-function renderLiveTrip(){
-  if(!currentTrip) return;
-  const avg = tripAvg(tripDistanceKm, currentTrip.movingMs);
-  liveTripEl.textContent = `🔴 Ride chal rahi hai\n⏱️ ${fmtClock(Date.now() - currentTrip.start)} · 📏 ${tripDistanceKm.toFixed(1)} km\n⚡ Avg ${Math.round(avg)} km/h · Max ${currentTrip.maxSpeed} km/h`;
-}
-function checkpointTrip(){
-  if(!currentTrip) return;
-  saveJSON('rideActiveTrip', Object.assign({}, currentTrip, { dist: tripDistanceKm, points: downsample(currentTrip.points, 1200) }));
-}
-function buildTripRecord(t, dist, endTs){
-  return { id: t.id, start: t.start, end: endTs, dist, durMs: endTs - t.start, movingMs: t.movingMs, avg: tripAvg(dist, t.movingMs),
-           max: t.maxSpeed, overspeed: t.overspeed, startPlace: t.startPlace, endPlace: t.endPlace, dest: t.dest, points: downsample(t.points || [], 800) };
-}
-function addTripRecord(rec){
-  trips.unshift(rec);
-  if(trips.length > 30) trips = trips.slice(0, 30);
-  if(!saveJSON('rideTrips', trips)){
-    trips.forEach((x, i) => { if(i > 5) x.points = []; });
-    saveJSON('rideTrips', trips);
-  }
-  renderTrips();
-}
-function finishTrip(){
-  clearInterval(tripTimer); tripTimer = null;
-  if(!currentTrip) return;
-  const t = currentTrip; currentTrip = null;
-  try{ localStorage.removeItem('rideActiveTrip'); }catch(e){}
-  if(tripDistanceKm < 0.1){ liveTripEl.textContent = 'Trip bahut chhoti thi (0.1 km se kam), isliye save nahi hui.'; return; }
-  const rec = buildTripRecord(t, tripDistanceKm, Date.now());
-  addTripRecord(rec);
-  liveTripEl.textContent = `✅ Trip save ho gayi: ${rec.dist.toFixed(1)} km · ${fmtClock(rec.durMs)} · Avg ${Math.round(rec.avg)} km/h`;
-}
-function recoverActiveTrip(){
-  const t = loadJSON('rideActiveTrip', null);
-  if(!t) return;
-  try{ localStorage.removeItem('rideActiveTrip'); }catch(e){}
-  if(!t.dist || t.dist < 0.1) return;
-  const lastTs = t.points && t.points.length ? t.points[t.points.length - 1][2] : t.start;
-  const rec = buildTripRecord(t, t.dist, lastTs); rec.recovered = true;
-  addTripRecord(rec);
-}
-
-function mk(tag, cls, text){ const e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; }
-function tripToGpx(t){
-  const esc = v => String(v == null ? '' : v).replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[c]));
-  const pts = (t.points || []).map(p => `<trkpt lat="${p[0]}" lon="${p[1]}">${p[2] ? '<time>' + new Date(p[2]).toISOString() + '</time>' : ''}</trkpt>`).join('');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Ride Assistant Pro" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>${esc('Ride ' + new Date(t.start).toLocaleString('en-IN'))}</name><trkseg>${pts}</trkseg></trk></gpx>`;
-}
-function downloadText(filename, text, mime){
-  const url = URL.createObjectURL(new Blob([text], { type: mime }));
-  const a = document.createElement('a'); a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
-}
-async function showTripOnMap(t){
-  if(!t.points || t.points.length < 2){ setAlert('Is trip ka route save nahi hai.', 'warn'); return; }
-  if(!map) await ensureLocation();
-  if(!map){ setAlert('Map abhi ready nahi hai.', 'warn'); return; }
-  forceCenterOnNextUpdate = false;
-  setTripLine(t.points);
-  fitCoords(t.points);
-  try{ document.getElementById('mapContainer').scrollIntoView({ behavior: 'smooth', block: 'center' }); }catch(e){}
-}
-
-function renderTrips(){
-  tripListEl.innerHTML = '';
-  const totalKm = trips.reduce((a, t) => a + (t.dist || 0), 0);
-  tripTotalsEl.textContent = trips.length ? `Kul ${trips.length} trips · ${totalKm.toFixed(1)} km` : 'Abhi tak koi trip save nahi hui.';
-  tripClearAllBtn.style.display = trips.length ? '' : 'none';
-  trips.forEach(t => {
-    const item = mk('div', 'trip-item');
-    const top = mk('div', 't-top');
-    top.appendChild(mk('span', 't-dist', `${(t.dist || 0).toFixed(1)} km`));
-    top.appendChild(mk('span', 't-date', new Date(t.start).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) + (t.recovered ? ' (adhoori)' : '')));
-    item.appendChild(top);
-    item.appendChild(mk('div', 't-meta', `⏱️ ${fmtClock(t.durMs || 0)} · ⚡ Avg ${Math.round(t.avg || 0)} · Max ${t.max || 0} km/h` + (t.overspeed ? ` · 🚨 ${t.overspeed}x overspeed` : '')));
-    item.appendChild(mk('div', 't-place', `${t.startPlace || 'Shuruaat'} → ${t.dest || t.endPlace || 'Ant'}`));
-    const act = mk('div', 't-actions');
-    const bMap = mk('button', 't-btn', '🗺️ Map'); bMap.addEventListener('click', () => showTripOnMap(t));
-    const bGpx = mk('button', 't-btn', '⬇️ GPX');
-    bGpx.addEventListener('click', () => {
-      if(!t.points || t.points.length < 2){ setAlert('Is trip ka route save nahi hai.', 'warn'); return; }
-      downloadText(`ride-${new Date(t.start).toISOString().slice(0, 10)}.gpx`, tripToGpx(t), 'application/gpx+xml');
-    });
-    const bDel = mk('button', 't-btn', '🗑️'); bDel.style.flex = '0 0 44px';
-    bDel.addEventListener('click', () => {
-      if(!confirm('Ye trip hata dein?')) return;
-      trips = trips.filter(x => x.id !== t.id); saveJSON('rideTrips', trips); renderTrips();
-    });
-    act.appendChild(bMap); act.appendChild(bGpx); act.appendChild(bDel);
-    item.appendChild(act);
-    tripListEl.appendChild(item);
-  });
-}
-tripClearAllBtn.addEventListener('click', () => {
-  if(!confirm('Saari saved trips hata dein? Ye wapas nahi aayengi.')) return;
-  trips = []; saveJSON('rideTrips', trips); renderTrips();
-});
-tripMapClearBtn.addEventListener('click', () => setTripLine([]));
-document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'hidden') checkpointTrip(); });
-
-// ---------- Location helpers: GPS -> (na mile to) internet se approx location ----------
-function getGpsOnce(timeout=8000){
-  return new Promise((resolve) => {
-    if(!('geolocation' in navigator)) return resolve(null);
-    navigator.geolocation.getCurrentPosition(
-      p => resolve({ lat: p.coords.latitude, lon: p.coords.longitude }),
-      () => resolve(null),
-      { enableHighAccuracy: false, timeout, maximumAge: 60000 }
-    );
-  });
-}
-async function getIpLocation(){
-  const sources = [
-    ['https://ipwho.is/', d => (d && d.success !== false && d.latitude != null) ? { lat: d.latitude, lon: d.longitude } : null],
-    ['https://ipapi.co/json/', d => (d && d.latitude != null) ? { lat: d.latitude, lon: d.longitude } : null]
-  ];
-  for(const [url, parse] of sources){
-    try{
-      const r = await fetch(url); const d = await r.json(); const pos = parse(d);
-      if(pos) return pos;
-    }catch(e){}
-  }
-  return null;
-}
-async function ensureLocation(){
-  if(lastPos) return true;
-  let pos = await getGpsOnce();
-  if(pos){
-    lastPos = { lat: pos.lat, lon: pos.lon, time: Date.now() }; lastPosApprox = false;
-  } else {
-    pos = await getIpLocation();
-    if(pos){
-      lastPos = { lat: pos.lat, lon: pos.lon, time: Date.now() }; lastPosApprox = true;
-      setAlert('⚠️ GPS nahi mila, internet se approx location use ho rahi hai (kuch km ka farak ho sakta hai). Sahi location ke liye HTTPS par kholein aur Start Ride dabayein.', 'warn');
-    }
-  }
-  if(!lastPos) return false;
-  initMap(lastPos.lat, lastPos.lon);
-  return true;
-}
-
-async function findNearby(filterQuerySnippet, label, fallbackQueryText){
-  setAiStatus(`Aapki location dhoond raha hoon...`);
-  const ok = await ensureLocation();
-  if(!ok){
-    setAiStatus('Location nahi mili. Browser mein location permission dein, aur file HTTPS ya localhost par kholein.');
-    speak('Location nahi mili.');
-    return;
-  }
-  await executeNearbySearch(filterQuerySnippet, label, fallbackQueryText);
-}
-
-const OVERPASS_SERVERS = [
-  'https://overpass-api.de/api/interpreter',
-  'https://z.overpass-api.de/api/interpreter',
-  'https://overpass.private.coffee/api/interpreter',
-  'https://overpass.openstreetmap.fr/api/interpreter',
-  'https://overpass.osm.ch/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter'
-];
-let lastOverpassError = '';
-let overpassDownUntil = 0;
-let lastNomCall = 0;
-async function nominatimNearby(term, d, types){
-  const wait = 1100 - (Date.now() - lastNomCall);
-  if(wait > 0) await new Promise(r => setTimeout(r, wait));
-  lastNomCall = Date.now();
-  try{
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(term)}&viewbox=${lastPos.lon-d},${lastPos.lat+d},${lastPos.lon+d},${lastPos.lat-d}&bounded=1&limit=10`;
-    const res = await fetch(url, { headers: { 'Accept-Language': 'hi,en' } });
-    const data = await res.json();
-    return (data || []).filter(item => !types || types.includes(item.type)).map(item => ({
-      name: item.display_name.split(',')[0],
-      lat: parseFloat(item.lat), lon: parseFloat(item.lon),
-      dist: haversineKm(lastPos.lat, lastPos.lon, parseFloat(item.lat), parseFloat(item.lon))
-    }));
-  }catch(e){ return []; }
-}
-
-// Photon: OSM tag ke hisaab se paas ki jagah (CORS-friendly)
-async function photonNearby(tags, rKm, label){
-  const out = [];
-  for(const tag of tags){
-    try{
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 10000);
-      const url = `https://photon.komoot.io/reverse?lon=${lastPos.lon}&lat=${lastPos.lat}&radius=${rKm}&limit=20&osm_tag=${encodeURIComponent(tag)}`;
-      const res = await fetch(url, { signal: ctrl.signal });
-      clearTimeout(timer);
-      if(!res.ok) continue;
-      const data = await res.json();
-      (data.features || []).forEach(f => {
-        const c = f.geometry && f.geometry.coordinates; if(!c) return;
-        const pr = f.properties || {};
-        out.push({
-          name: pr.name || (label + ' (naam darj nahi)'),
-          lat: c[1], lon: c[0],
-          dist: haversineKm(lastPos.lat, lastPos.lon, c[1], c[0])
-        });
-      });
-    }catch(e){}
-  }
-  return out.sort((a,b) => a.dist - b.dist);
-}
-// Sabhi servers ko ek saath poochta hai, jo pehle sahi jawab de wahi use hota hai
-function overpassQuery(q){
-  return new Promise((resolve) => {
-    let pending = OVERPASS_SERVERS.length, done = false;
-    const ctrls = [];
-    lastOverpassError = '';
-    const errs = {};
-    OVERPASS_SERVERS.forEach((base) => {
-      const ctrl = new AbortController(); ctrls.push(ctrl);
-      const timer = setTimeout(() => ctrl.abort(), 12000);
-      fetch(base, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'data=' + encodeURIComponent(q),
-        signal: ctrl.signal
-      })
-      .then(async (res) => {
-        if(!res.ok) throw new Error('HTTP ' + res.status);
-        const data = await res.json();
-        if(!data || !Array.isArray(data.elements)) throw new Error('galat data');
-        if(data.elements.length === 0 && data.remark && /timed out|out of memory/i.test(data.remark)) throw new Error('server timeout');
-        return data.elements;
-      })
-      .then((elements) => {
-        clearTimeout(timer);
-        if(!done){ done = true; ctrls.forEach(c => { try{ c.abort(); }catch(e){} }); resolve(elements); }
-      })
-      .catch((err) => {
-        clearTimeout(timer);
-        if(!done){
-          let host = base; try{ host = new URL(base).hostname; }catch(e){}
-          errs[host] = (err && err.name === 'AbortError') ? 'timeout' : ((err && err.message) || 'error');
-          lastOverpassError = Object.entries(errs).map(([h, e]) => h + ': ' + e).join('\n');
-          if(--pending === 0){ done = true; resolve(null); }
-        }
-      });
-    });
-  });
-}
-
-function placeName(tags, label){
-  if(!tags) return label + ' (naam darj nahi)';
-  const base = tags.name || tags['name:hi'] || tags['name:en'] || tags.brand || tags.operator ||
-         (tags.ref ? 'Road ' + tags.ref : null) || (label + ' (naam darj nahi)');
-  if(tags.amenity !== 'atm' && tags.atm === 'yes' && !/atm/i.test(base)) return base + ' (bank/ATM)';
-  return base;
-}
-function showGmapsLink(label){
-  const a = document.getElementById('gmapsLink');
-  if(!a || !lastPos) return;
-  const term = String(label).replace(/\(.*?\)/g, '').trim();
-  a.href = `https://www.google.com/maps/search/${encodeURIComponent(term)}/@${lastPos.lat},${lastPos.lon},15z`;
-  a.textContent = `🗺️ Google Maps par paas ke "${term}" bhi dekhein`;
-  a.style.display = 'inline-block';
-}
-function fmtDist(km){ return km < 1 ? Math.round(km * 1000) + ' m' : km.toFixed(1) + ' km'; }
-
-async function executeNearbySearch(filterQuerySnippet, label, fallbackQueryText){
-  setAiStatus(`Najdeek ${label} dhoond raha hoon...`);
-  const gl = document.getElementById('gmapsLink'); if(gl) gl.style.display = 'none';
-
-  let mapped = [];
-  let serversFailed = false;
-  let usedFallback = false;
-
-  // 1) Overpass (agar abhi haal mein fail hua ho to skip, taaki intezaar na karna pade)
-  if(Date.now() > overpassDownUntil){
-    for(const r of [4000, 12000, 30000]){
-      const dLat = r / 111000, dLon = r / (111320 * Math.cos(toRad(lastPos.lat)));
-      const bbox = `${(lastPos.lat-dLat).toFixed(5)},${(lastPos.lon-dLon).toFixed(5)},${(lastPos.lat+dLat).toFixed(5)},${(lastPos.lon+dLon).toFixed(5)}`;
-      const q = `[out:json][timeout:10][bbox:${bbox}];(${filterQuerySnippet};);out center qt 100;`;
-      const elements = await overpassQuery(q);
-      if(elements === null){ serversFailed = true; overpassDownUntil = Date.now() + 5*60*1000; break; }
-      mapped = elements.map(e => {
-        let lat = e.lat, lon = e.lon;
-        if(lat == null && e.center){ lat = e.center.lat; lon = e.center.lon; }
-        if(lat == null || lon == null) return null;
-        return { name: placeName(e.tags, label), lat, lon, dist: haversineKm(lastPos.lat, lastPos.lon, lat, lon) };
-      }).filter(Boolean).sort((a,b) => a.dist - b.dist);
-      if(mapped.length > 0) break;
-    }
-  } else { serversFailed = true; }
-
-  // 2) Photon + Nominatim: dono ke natije milakar sabse paas wala chuno
-  if(mapped.length === 0){
-    setAiStatus(`Doosre map sources se ${label} dhoond raha hoon...`);
-    const tags = PHOTON_TAGS[filterQuerySnippet];
-    const terms = NOM_TERMS[filterQuerySnippet] || (fallbackQueryText ? [fallbackQueryText] : []);
-    for(const [rKm, d] of [[8, 0.07], [25, 0.2], [60, 0.5]]){
-      let found = [];
-      if(tags) found = found.concat(await photonNearby(tags, rKm, label));
-      for(const term of terms){ found = found.concat(await nominatimNearby(term, d, NOM_TYPES[filterQuerySnippet])); }
-      const seenKeys = new Set();
-      found = found.filter(f => {
-        const k = f.lat.toFixed(4) + ',' + f.lon.toFixed(4);
-        if(seenKeys.has(k)) return false; seenKeys.add(k); return true;
-      }).sort((x, y) => x.dist - y.dist);
-      if(found.length){ mapped = found; usedFallback = true; break; }
-    }
-  }
-
-  if(mapped.length === 0){
-    const msg = serversFailed
-      ? `Paas mein ${label} nahi mila, aur map server (Overpass) bhi jawab nahi de raha:\n${lastOverpassError || 'unknown'}`
-      : `60 km ke andar koi ${label} OpenStreetMap par nahi mila.`;
-    setAiStatus(msg);
-    showGmapsLink(label);
-    speak(serversFailed ? 'Map server abhi jawab nahi de raha.' : `Aaspaas koi ${label} nahi mila.`);
-    return;
-  }
-
-  // Duplicate naam hatao (highway ke kai tukde ek hi naam ke hote hain)
-  const seen = new Set(); const unique = [];
-  for(const m of mapped){
-    const key = m.name.toLowerCase();
-    if(seen.has(key)) continue;
-    seen.add(key); unique.push(m);
-    if(unique.length >= 4) break;
-  }
-
-  // Map par sabhi paas ke options dikhao
-  clearNearbyMarkers();
-  unique.forEach(u => addNearbyMarker(u));
-
-  const nearest = unique[0];
-  await setDestination(nearest.lat, nearest.lon, nearest.name);
-
-  let txt = `Sabse najdeek ${label}: ${nearest.name} — ${fmtDist(nearest.dist)} door. Rasta set ho gaya!`;
-  if(unique.length > 1){
-    txt += '\nAur paas mein:\n' + unique.slice(1).map((u,i) => `${i+2}. ${u.name} — ${fmtDist(u.dist)}`).join('\n');
-  }
-  if(lastPosApprox) txt += '\n(Approx location se; GPS on karke Start Ride dabayein.)';
-  if(usedFallback) txt += '\n⚠️ Ye result OpenStreetMap ke text-search se mila hai, galat ho sakta hai. Neeche Google Maps se bhi check karein.';
-  txt += '\nMap par peele dot dabakar doosra option bhi chun sakte hain.';
-  setAiStatus(txt);
-  showGmapsLink(label);
-  speak(`Sabse najdeek ${label}: ${nearest.name}, ${fmtDist(nearest.dist).replace('km','kilometer').replace(' m',' meter')} door hai. Rasta set kar diya gaya hai.`);
-}
-
-const Q = {
-  fuel: 'nw["amenity"="fuel"]',
-  hospital: 'nw["amenity"="hospital"]',
-  highway: 'way["highway"~"^(motorway|trunk)$"]',
-  tyre: 'nw["shop"~"^(tyres|tyre)$"]',
-  water: 'nw["amenity"="drinking_water"]',
-  kirana: 'nw["shop"~"^(convenience|supermarket|general)$"]',
-  snack: 'nw["shop"="supermarket"]',
-  hotel: 'nw["tourism"="hotel"]',
-  atm: 'nw["amenity"="atm"];nw["amenity"="bank"]["atm"="yes"];nw["atm"="yes"]["amenity"!="atm"]'
-};
-
-const PHOTON_TAGS = {
-  [Q.fuel]: ['amenity:fuel'],
-  [Q.hospital]: ['amenity:hospital'],
-  [Q.tyre]: ['shop:tyres'],
-  [Q.water]: ['amenity:drinking_water'],
-  [Q.kirana]: ['shop:convenience', 'shop:supermarket'],
-  [Q.snack]: ['shop:supermarket'],
-  [Q.hotel]: ['tourism:hotel'],
-  [Q.atm]: ['amenity:atm']
-};
-
-const NOM_TYPES = { [Q.atm]: ['atm', 'bank'] };
-const NOM_TERMS = {
-  [Q.fuel]: ['petrol pump', 'petrol station', 'fuel'],
-  [Q.hospital]: ['hospital'],
-  [Q.highway]: ['national highway', 'highway', 'expressway'],
-  [Q.tyre]: ['tyre', 'puncture', 'tyres'],
-  [Q.water]: ['drinking water', 'water'],
-  [Q.kirana]: ['kirana', 'supermarket', 'grocery'],
-  [Q.snack]: ['supermarket', 'sweets'],
-  [Q.hotel]: ['hotel'],
-  [Q.atm]: ['atm', 'bank atm']
-};
-
-// Voice/text command: pehle "kya dhoondna hai" wale keywords, phir manzil/speed/location
-// (taaki "petrol ki location" jaisa sentence galat jawab na de)
-async function handleUserQuery(text){
-  stopSpeech();
-  const t = text.toLowerCase().trim();
-  setAiStatus('Aapne kaha: "' + text + '"');
-
-  if(/\bjam\b|traffic|bheed|जाम|ट्रैफिक/.test(t)){ await handleTrafficJam(); return; }
-  if(/camera|कैमरा|\bcam\b/.test(t)){ const r = camStatusEl.textContent; setAiStatus(r); speakClean(r); return; }
-  if(/mausam|weather|baarish|barish|मौसम|बारिश/.test(t)){ await speakWeather(); return; }
-
-  if(/petrol|fuel|diesel|पेट्रोल/.test(t)){ await findNearby(Q.fuel, 'petrol pump', 'petrol station'); return; }
-  if(/hospital|doctor|clinic|अस्पताल|डॉक्टर/.test(t)){ await findNearby(Q.hospital, 'hospital', 'hospital'); return; }
-  if(/hawa|\bair\b|tyre|puncture|पंचर|पंप/.test(t)){ await findNearby(Q.tyre, 'air & puncture shop', 'tyre'); return; }
-  if(/pani|water|paani|पानी/.test(t)){ await findNearby(Q.water, 'water point', 'drinking water'); return; }
-  if(/kirana|rashan|grocery|किराना|राशन/.test(t)){ await findNearby(Q.kirana, 'kirana store', 'supermarket'); return; }
-  if(/chocolate|sweet|khane|food|चॉकलेट|खाना/.test(t)){ await findNearby(Q.snack, 'snack store', 'supermarket'); return; }
-  if(/hotel|room|rukne|होटल/.test(t)){ await findNearby(Q.hotel, 'hotel', 'hotel'); return; }
-  if(/atm|paisa|एटीएम/.test(t)){ await findNearby(Q.atm, 'ATM', 'ATM'); return; }
-  if(/highway|haivay|हाइवे/.test(t)){ await findNearby(Q.highway, 'highway', 'highway'); return; }
-
-  if(/manzil|destination|kitni door|kitna door|dur kitna|pahunchna/.test(t)){
-    if(destination && lastPos){
-      const d = haversineKm(lastPos.lat, lastPos.lon, destination.lat, destination.lon);
-      const rem = routeRemainingKm(lastPos.lat, lastPos.lon);
-      const km = rem != null ? rem : d;
-      const r = `Manzil ${destination.name} abhi ${km.toFixed(1)} kilometer door hai.`;
-      setAiStatus(r); speak(r); return;
-    } else {
-      const r = 'Aapne abhi koi destination set nahi kiya hai.';
-      setAiStatus(r); speak(r); return;
-    }
-  }
-
-  if(/speed|kitni speed|गति/.test(t)){ const r = `Aapki speed ${lastSpeedKmh} km/h hai.`; setAiStatus(r); speak(r); return; }
-  if(/kahan|location|कहाँ/.test(t)){ const r = placeNameTextEl.textContent; setAiStatus(r); speakClean(r); return; }
-
-  const generalReply = `Maine sun liya: "${text}" — Main yahin hoon, safe ride karein!`;
-  setAiStatus(generalReply);
-  speak(generalReply);
-}
-
-aiChatSendBtn.addEventListener('click', () => {
-  const val = aiChatInput.value.trim();
-  if(!val) return;
-  aiChatInput.value = '';
-  handleUserQuery(val);
-});
-aiChatInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') aiChatSendBtn.click(); });
-
-// ================= DESTINATION SEARCH (Photon autocomplete, Nominatim fallback) =================
-// Nominatim ki policy autocomplete ki ijazat nahi deti, isliye type karte waqt Photon use hota hai.
-let searchTimeout = null; let sugCtrl = null; const sugCache = new Map();
-async function fetchSuggestions(q){
-  if(sugCache.has(q)) return sugCache.get(q);
-  if(sugCtrl){ try{ sugCtrl.abort(); }catch(e){} }
-  sugCtrl = new AbortController();
-  let out = [];
-  try{
-    let url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=6`;
-    if(lastPos) url += `&lat=${lastPos.lat}&lon=${lastPos.lon}`;
-    const res = await fetch(url, { signal: sugCtrl.signal });
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    const d = await res.json();
-    out = (d.features || []).map(f => {
-      const c = f.geometry && f.geometry.coordinates; if(!c) return null;
-      const p = f.properties || {};
-      const parts = []; [p.name, p.street, p.district || p.locality, p.city, p.state].forEach(v => { if(v && !parts.includes(v)) parts.push(v); });
-      if(!parts.length) return null;
-      return { lat: c[1], lon: c[0], name: parts[0], label: parts.join(', ') };
-    }).filter(Boolean);
-  }catch(e){
-    if(e && e.name === 'AbortError') return null;
-    out = [];
-  }
-  if(!out.length){
-    try{
-      let viewboxParam = '';
-      if(lastPos){ const delta = 0.5; viewboxParam = `&viewbox=${lastPos.lon - delta},${lastPos.lat + delta},${lastPos.lon + delta},${lastPos.lat - delta}&bounded=0`; }
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=6&addressdetails=1${viewboxParam}`, { headers: { 'Accept-Language': 'hi,en' } });
-      const results = await res.json();
-      out = (results || []).map(item => ({ lat: parseFloat(item.lat), lon: parseFloat(item.lon), name: item.display_name.split(',')[0], label: item.display_name }));
-    }catch(e){ out = []; }
-  }
-  if(out.length) sugCache.set(q, out);
-  return out;
-}
-
-destInput.addEventListener('input', () => {
-  clearTimeout(searchTimeout);
-  const q = destInput.value.trim();
-  if(q.length < 3){ destSuggestionsEl.style.display = 'none'; return; }
-
-  searchTimeout = setTimeout(async () => {
-    try {
-      const results = await fetchSuggestions(q);
-      if(results === null) return;                         // naya search shuru ho gaya
-      if(destInput.value.trim() !== q) return;             // user aage type kar chuka hai
-      if(!results.length){ destSuggestionsEl.style.display = 'none'; return; }
-
-      destSuggestionsEl.innerHTML = '';
-      results.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'dest-suggestion-item';
-        div.style.cssText = 'padding:11px 12px; font-size:13px; border-bottom:1px solid var(--line); cursor:pointer; background:var(--panel-2); color:var(--text); display:flex; align-items:center; gap:8px;';
-
-        const iconSpan = document.createElement('span');
-        iconSpan.textContent = '📍';
-        iconSpan.style.fontSize = '16px';
-
-        const textSpan = document.createElement('span');
-        textSpan.style.cssText = 'overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
-        textSpan.textContent = item.label;
-
-        div.appendChild(iconSpan);
-        div.appendChild(textSpan);
-        div.addEventListener('click', () => {
-          setDestination(item.lat, item.lon, item.name);
-        });
-        destSuggestionsEl.appendChild(div);
-      });
-      destSuggestionsEl.style.display = 'block';
-    } catch(e) { destSuggestionsEl.style.display = 'none'; }
-  }, 700);
-});
-
-document.addEventListener('click', (e) => {
-  if(!destInput.contains(e.target) && !destSuggestionsEl.contains(e.target)){
-    destSuggestionsEl.style.display = 'none';
-  }
-});
-
-async function setDestination(lat, lon, name){
-  destination = { lat, lon, name, currentStepIndex: 0, steps: null, announced: new Set(), arrivedSpoken: false };
-  activeRouteData = null; routeCoordsCache = []; routeCum = []; altMode = false; prevRouteCoords = null; setRouteLine([]); clearTurnMarkers();
-  destDistValEl.textContent = '--'; destTimeValEl.textContent = '--';
-  destInput.value = name;
-  destSuggestionsEl.style.display = 'none';
-  destStatusEl.textContent = `🎯 ${name} set ho gaya! Route bana raha hoon...`;
-
-  if(!lastPos){
-    destStatusEl.textContent = '📡 Aapki location dhoond raha hoon...';
-    await ensureLocation();
-  }
-  setDestMarker(lat, lon, name);
-  if(lastPos){
-    await buildRouteForDestination(lastPos.lat, lastPos.lon);
-  } else {
-    destStatusEl.textContent = '⚠️ Location nahi mili, isliye doori/samay nahi nikal sakta. Browser mein location allow karein aur HTTPS/localhost par kholein.';
-  }
-  updateDestWeather();
-}
-
-setDestBtn.addEventListener('click', async () => {
-  const query = destInput.value.trim(); if(!query) return;
-  destSuggestionsEl.style.display = 'none';
-  try{
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
-    const results = await res.json();
-    if(!results.length){ destStatusEl.textContent = 'Jagah nahi mili.'; return; }
-    setDestination(parseFloat(results[0].lat), parseFloat(results[0].lon), results[0].display_name.split(',')[0]);
-  }catch(e){ destStatusEl.textContent = 'Error aayi.'; }
-});
-
-shareLocBtn.addEventListener('click', async () => {
-  const ok = await ensureLocation();
-  if(!ok || !lastPos){ setAlert('Location nahi mili, share nahi kar sakte.', 'warn'); return; }
-  const url = `https://www.google.com/maps?q=${lastPos.lat.toFixed(6)},${lastPos.lon.toFixed(6)}`;
-  const msg = 'Meri live location:';
-  const note = lastPosApprox ? ' (approx location, GPS on karke Start Ride dabayein)' : '';
-  try{
-    if(navigator.share){ await navigator.share({ title: 'Meri location', text: msg, url }); return; }
-  }catch(e){ if(e && e.name === 'AbortError') return; }
-  try{
-    await navigator.clipboard.writeText(`${msg} ${url}`);
-    setAlert('📋 Location link copy ho gaya, ab kisi ko bhi paste karke bhejein.' + note, 'ok');
-  }catch(e){
-    setAlert('Link: ' + url + note, 'ok');
-  }
-});
-
-clearDestBtn.addEventListener('click', () => {
-  destination = null; destInput.value = ''; destSuggestionsEl.style.display = 'none'; destStatusEl.textContent = ''; navPanelEl.style.display = 'none';
-  activeRouteData = null; routeCoordsCache = []; routeCum = []; altMode = false; prevRouteCoords = null; clearTurnMarkers();
-  destDistValEl.textContent = '--'; destTimeValEl.textContent = '--';
-  weatherDestEl.textContent = '';
-  if(destMapMarker){ try{ destMapMarker.remove(); }catch(e){} destMapMarker = null; }
-  clearNearbyMarkers();
-  setRouteLine([]);
-});
-
-function handlePosition(pos){
-  const { latitude, longitude, speed, heading } = pos.coords;
-  const nowTs = Date.now();
-  const havePrev = !!lastPos && !lastPosApprox && (nowTs - lastPos.time) < 30000;
-  const dKm = havePrev ? haversineKm(lastPos.lat, lastPos.lon, latitude, longitude) : 0;
-  const dtSec = havePrev ? (nowTs - lastPos.time) / 1000 : 0;
-
-  // Speed: GPS ki speed, na mile to doori/samay se nikalo
-  let speedKmh;
-  if(speed !== null && speed !== undefined && !isNaN(speed) && speed >= 0){ speedKmh = Math.round(speed * 3.6); }
-  else if(havePrev && dtSec > 0.5 && dtSec < 30 && dKm * 1000 >= 6){ speedKmh = Math.round(dKm / dtSec * 3600); }
-  else { speedKmh = (havePrev && dKm * 1000 < 6) ? 0 : lastSpeedKmh; }
-
-  let headingDeg = null;
-  if(heading !== null && heading !== undefined && !isNaN(heading) && heading >= 0 && speedKmh >= 2){ headingDeg = heading; }
-  else if(havePrev && dKm * 1000 >= 5){ headingDeg = bearing(lastPos.lat, lastPos.lon, latitude, longitude); }
-  if(headingDeg === null || isNaN(headingDeg)){ headingDeg = lastHeading !== null ? lastHeading : 0; }
-
-  // Destination ke saath tez mod ki awaaz route ke turn guidance se aati hai.
-  // Bina destination ke heading badalne se andaza lagate hain (noise kam karne ke liye thresholds badhaye).
-  if(!(destination && destination.steps) && lastHeading !== null && speedKmh > 25){
-    let turnDiff = Math.abs(((headingDeg - lastHeading + 540) % 360) - 180);
-    if(turnDiff > 60 && nowTs - lastTurnSpoken > 25000){
-      lastTurnSpoken = nowTs;
-      speak('Aage tez mod hai, speed kam karein.', { urgent: true });
-      setAlert('⚠️ Tez mod (Sharp Turn) aage hai!', 'warn');
-    }
-  }
-  lastHeading = headingDeg;
-
-  // Trip distance / stats (khade hone par GPS drift nahi judta)
-  if(havePrev && dKm * 1000 < 2000 && (speedKmh >= 3 || dKm * 1000 >= 20)){
-    tripDistanceKm += dKm;
-    if(currentTrip && speedKmh >= 3) currentTrip.movingMs += Math.min(dtSec, 30) * 1000;
-  }
-  tripDistanceEl.textContent = tripDistanceKm.toFixed(1);
-  if(currentTrip){
-    if(speedKmh <= 200 && speedKmh > currentTrip.maxSpeed) currentTrip.maxSpeed = speedKmh;
-    const lp = currentTrip.points[currentTrip.points.length - 1];
-    if(!lp || haversineKm(lp[0], lp[1], latitude, longitude) * 1000 >= 15){
-      currentTrip.points.push([+latitude.toFixed(5), +longitude.toFixed(5), nowTs]);
-    }
-  }
-
-  if(destination){
-    const straightKm = haversineKm(latitude, longitude, destination.lat, destination.lon);
-    // Route par bacha hua asli doori; route se bahut door ho to seedhi line
-    const routeRem = routeRemainingKm(latitude, longitude);
-    const remDist = routeRem != null ? routeRem : straightKm;
-    destDistValEl.textContent = remDist >= 1 ? remDist.toFixed(1) + ' km' : Math.round(remDist * 1000) + ' m';
-
-    if(activeRouteData && activeRouteData.initialDistKm > 0){
-      let ratio;
-      if(routeRem != null && routeCum.length > 1 && routeCum[routeCum.length - 1] > 0){
-        ratio = routeRem / routeCum[routeCum.length - 1];
-      } else {
-        ratio = (straightKm * 1.3) / activeRouteData.initialDistKm;   // seedhi line road se chhoti hoti hai
-      }
-      ratio = Math.max(0, Math.min(1, ratio));
-      const remMin = Math.round(activeRouteData.durationMin * ratio);
-      destTimeValEl.textContent = fmtDuration(remMin);
-
-      // Off-route (100 m+) hone par, 30 second cooldown ke saath re-route
-      if(routeCoordsCache.length > 1 && nowTs - lastRerouteTime > 30000){
-        let off = distToRouteM(latitude, longitude, routeCoordsCache) > 100;
-        // Jam ke baad agar aap abhi purani road par hi ho, to zabardasti re-route na karein
-        if(off && altMode && prevRouteCoords && distToRouteM(latitude, longitude, prevRouteCoords) <= 100) off = false;
-        if(off){
-          altMode = false; prevRouteCoords = null;
-          lastRerouteTime = nowTs;
-          buildRouteForDestination(latitude, longitude);
-        }
-      }
-    } else {
-      if(speedKmh > 5){
-        const remMin = Math.round((remDist / speedKmh) * 60);
-        destTimeValEl.textContent = fmtDuration(remMin);
-      }
-      if(!routeRequestPending && nowTs - lastRouteAttempt > 15000){
-        routeRequestPending = true;
-        lastRouteAttempt = nowTs;
-        buildRouteForDestination(latitude, longitude).finally(() => { routeRequestPending = false; });
-      }
-    }
-  }
-
-  speedValueEl.textContent = speedKmh;
-  speedValueEl.className = 'speed-value' + (speedKmh > speedLimit ? ' over' : '');
-  needleEl.style.transform = `rotate(${headingDeg}deg)`;
-  compassLabelEl.textContent = `${compassLabel(headingDeg)} · ${Math.round(headingDeg)}°`;
-
-  // lastSpeedKmh turn-advance radius ke liye pehle update karte hain
-  lastSpeedKmh = speedKmh;
-  updateMap(latitude, longitude, headingDeg, speedKmh);
-  updatePlaceName(latitude, longitude);
-  if(destination) updateTurnByTurn(latitude, longitude);
-  checkSpeedCams(latitude, longitude, headingDeg, speedKmh);
-  maybeFetchCams(latitude, longitude);
-  maybeAutoLimit(latitude, longitude);
-
-  if(speedKmh > speedLimit && !overspeedActive){
-    overspeedActive = true;
-    setAlert(`🚨 Speed limit ${speedLimit} km/h cross ho gayi: ${speedKmh} km/h`, 'warn');
-  } else if(speedKmh <= speedLimit && overspeedActive){
-    overspeedActive = false;
-    setAlert('✅ Speed ab limit ke andar hai.', 'ok');
-  }
-  if(speedKmh > speedLimit && nowTs - lastOverspeedSpoken > 20000){
-    lastOverspeedSpoken = nowTs;
-    if(currentTrip) currentTrip.overspeed++;
-    speak(`Speed limit cross ho gayi hai, speed ${speedKmh} km/h hai.`, { maxAge: 6000 });
-  }
-  lastPos = { lat: latitude, lon: longitude, time: nowTs };
-  lastPosApprox = false;
-  maybeUpdateWeather(false);
-}
-
-async function requestWakeLock(){
-  try{
-    if('wakeLock' in navigator){ wakeLock = await navigator.wakeLock.request('screen'); }
-  }catch(e){}
-}
-function releaseWakeLock(){
-  try{ if(wakeLock){ wakeLock.release(); wakeLock = null; } }catch(e){}
-}
-document.addEventListener('visibilitychange', () => {
-  if(tracking && document.visibilityState === 'visible') requestWakeLock();
-});
-
-startBtn.addEventListener('click', () => {
-  if(tracking){
-    tracking = false; startBtn.textContent = 'Start Ride'; startBtn.classList.remove('stop');
-    statusDot.classList.remove('live'); navigator.geolocation.clearWatch(watchId);
-    releaseWakeLock();
-    finishTrip();
-    overspeedActive = false;
-    setAlert('Ride ruk gayi.');
-  } else {
-    if(!('geolocation' in navigator)){ setAlert('GPS not supported', 'warn'); return; }
-    tracking = true; startBtn.textContent = 'Stop Ride'; startBtn.classList.add('stop');
-    statusDot.classList.add('live'); setAlert('Tracking shuru ho gayi!', 'ok');
-    forceCenterOnNextUpdate = true;
-    startTrip();
-    requestWakeLock();
-    watchId = navigator.geolocation.watchPosition(handlePosition, () => setAlert('GPS Error: location permission check karein', 'warn'), { enableHighAccuracy: true });
-  }
-});
-
-recenterBtn.addEventListener('click', () => {
-  forceCenterOnNextUpdate = true;
-  if(lastPos && map){
-    try{ map.easeTo({ center: [lastPos.lon, lastPos.lat], duration: 600 }); }catch(e){}
-    setAlert('Map aapki live location par set ho gaya.', 'ok');
-  } else {
-    setAlert('Pehle "Start Ride" dabakar location on karein.', 'warn');
-  }
-});
-
-rotateModeBtn.addEventListener('click', () => {
-  mapRotationMode = !mapRotationMode;
-  rotateModeBtn.textContent = mapRotationMode ? '🧭 Ghoomta Map' : '⬆️ North-Up';
-  rotateModeBtn.classList.toggle('on', mapRotationMode);
-  if(map && !mapRotationMode){ try{ map.easeTo({ bearing: 0, duration: 500 }); }catch(e){} }
-  setArrow(mapRotationMode ? 0 : (lastHeading || 0));
-});
-
-talkBtn.addEventListener('click', () => {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if(!SR){ setAiStatus('Voice support available nahi hai.'); return; }
-  stopSpeech();   // mic bolti hui awaaz ko na sune
-  const recognition = new SR(); recognition.lang = 'hi-IN';
-  talkBtn.classList.add('listening'); talkBtn.textContent = '🎙️ Sun raha hoon...';
-
-  recognition.onresult = (event) => {
-    handleUserQuery(event.results[event.results.length - 1][0].transcript);
-  };
-  recognition.onend = () => { talkBtn.classList.remove('listening'); talkBtn.textContent = '🎤 Ya Bolkar Baat karein'; };
-  try{ recognition.start(); }catch(e){ talkBtn.classList.remove('listening'); talkBtn.textContent = '🎤 Ya Bolkar Baat karein'; }
-});
-
-btnTrafficJam.addEventListener('click', handleTrafficJam);
-
-document.getElementById('nearFuel').addEventListener('click', () => findNearby(Q.fuel, 'petrol pump', 'petrol station'));
-document.getElementById('nearHosp').addEventListener('click', () => findNearby(Q.hospital, 'hospital', 'hospital'));
-document.getElementById('nearHighway').addEventListener('click', () => findNearby(Q.highway, 'highway', 'highway'));
-document.getElementById('nearPump').addEventListener('click', () => findNearby(Q.tyre, 'air & puncture shop', 'tyre'));
-document.getElementById('nearWater').addEventListener('click', () => findNearby(Q.water, 'water point', 'drinking water'));
-document.getElementById('nearKirana').addEventListener('click', () => findNearby(Q.kirana, 'kirana store', 'supermarket'));
-document.getElementById('nearAtm').addEventListener('click', () => findNearby(Q.atm, 'ATM', 'ATM'));
-
-// ----- PWA: HTTPS par service worker, taaki home screen se khule aur app shell offline chale -----
+(async()=>{
+const d=`
+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
++H36q8mz6zy+w7+raruZ/ur/ALcS8l/EhQEA
+`;
 try{
-  if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  }
-}catch(e){}
-
-// ----- load par -----
-recoverActiveTrip();
-renderTrips();
-try{
-  if(navigator.permissions && navigator.permissions.query){
-    navigator.permissions.query({ name: 'geolocation' }).then(p => {
-      if(p.state === 'granted'){ ensureLocation().then(ok => { if(ok) maybeUpdateWeather(true); }); }
-    }).catch(() => {});
-  }
-}catch(e){}
-</script>
-</body>
-</html>
+const b=Uint8Array.from(atob(d),c=>c.charCodeAt(0));
+const h=await new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+document.open();document.write(h);document.close();
+}catch(e){document.getElementById("m").textContent="Yeh browser compressed file nahi khol paya ("+e+"). Doosri file ride-assistant-pro-mini.html use karein."}
+})();
+</script></body></html>
